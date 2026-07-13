@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/manifest_providers.dart';
-import '../theme/app_theme.dart';
 
 /// Compact year card for the Home grid.
 ///
