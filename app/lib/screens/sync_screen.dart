@@ -216,14 +216,20 @@ class _FlippingBook extends StatelessWidget {
       width: 132,
       height: 132,
       alignment: Alignment.center,
+      // Glass-style circle: translucent fill + hairline border + a soft
+      // blue radial glow behind (subtle, not neon).
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.06),
+        color: Colors.white.withValues(alpha: 0.08),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.18),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withValues(alpha: 0.22),
-            blurRadius: 46,
-            spreadRadius: 4,
+            color: const Color(0xFF93C5FD).withValues(alpha: 0.28),
+            blurRadius: 42,
+            spreadRadius: 2,
           ),
         ],
       ),
@@ -515,24 +521,37 @@ class _Message extends StatelessWidget {
   }
 }
 
-/// Static, very faint decorative circles. Painted once — no repaints.
+/// Static, very faint "document line" clusters — an academic nod that adds
+/// depth without noise. Painted once, never repaints.
 class _BubblesPainter extends CustomPainter {
   const _BubblesPainter();
+
+  void _docLines(Canvas canvas, Offset origin, double width, Paint paint) {
+    // A small abstract paragraph: 3 rounded lines, last one shorter (RTL:
+    // lines anchored to the right edge of the cluster).
+    const lineH = 5.0;
+    const gap = 12.0;
+    for (var i = 0; i < 3; i++) {
+      final w = i == 2 ? width * 0.55 : width;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(origin.dx + (width - w), origin.dy + i * gap, w, lineH),
+          const Radius.circular(3),
+        ),
+        paint,
+      );
+    }
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.05);
     final w = size.width;
     final h = size.height;
-    canvas.drawCircle(Offset(w * 0.12, h * 0.10), 70, paint);
-    canvas.drawCircle(Offset(w * 0.92, h * 0.22), 46, paint);
-    canvas.drawCircle(Offset(w * 0.06, h * 0.58), 30, paint);
-    canvas.drawCircle(Offset(w * 0.88, h * 0.74), 84, paint);
-    canvas.drawCircle(Offset(w * 0.30, h * 0.92), 52, paint);
-    final dot = Paint()..color = Colors.white.withValues(alpha: 0.07);
-    canvas.drawCircle(Offset(w * 0.72, h * 0.08), 8, dot);
-    canvas.drawCircle(Offset(w * 0.20, h * 0.32), 5, dot);
-    canvas.drawCircle(Offset(w * 0.80, h * 0.46), 6, dot);
+    _docLines(canvas, Offset(w * 0.70, h * 0.09), w * 0.20, paint);
+    _docLines(canvas, Offset(w * 0.08, h * 0.20), w * 0.16, paint);
+    _docLines(canvas, Offset(w * 0.78, h * 0.68), w * 0.16, paint);
+    _docLines(canvas, Offset(w * 0.10, h * 0.84), w * 0.20, paint);
   }
 
   @override
