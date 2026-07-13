@@ -16,7 +16,7 @@ class AppColors {
   static const background = Color(0xFFF8FAFC);
   static const surface = Color(0xFFFFFFFF);
   static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF64748B);
+  static const textSecondary = Color(0xFF56637A); // AA on white at small sizes
   static const border = Color(0xFFE5E7EB);
   static const success = Color(0xFF22C55E);
   static const warning = Color(0xFFF59E0B);

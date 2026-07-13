@@ -91,7 +91,7 @@ class _YearCardState extends ConsumerState<YearCard> {
                           'الأحدث',
                           style: TextStyle(
                             color: scheme.onPrimaryContainer,
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -123,7 +123,8 @@ class _YearCardState extends ConsumerState<YearCard> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: scheme.onSurfaceVariant,
-                    fontSize: 11.5,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     height: 1.4,
                   ),
                 ),

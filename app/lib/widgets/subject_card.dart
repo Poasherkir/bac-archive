@@ -90,8 +90,8 @@ class _SubjectCardState extends State<SubjectCard> {
                       widget.hasContent ? 'جميع المواضيع' : 'لم تُضف بعد',
                       style: TextStyle(
                         color: scheme.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),
                     ),
