@@ -83,7 +83,10 @@ class _YearCardState extends ConsumerState<YearCard> {
                         ),
                       )
                     else
+                      // chevron glyphs auto-mirror under RTL; pin LTR so the
+                      // "open" affordance always points left (‹) in Arabic.
                       Icon(Icons.chevron_left_rounded,
+                          textDirection: TextDirection.ltr,
                           color: scheme.onSurfaceVariant, size: 22),
                   ],
                 ),
