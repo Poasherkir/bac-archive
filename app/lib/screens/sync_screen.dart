@@ -112,18 +112,18 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
                         children: [
                           Text(
                             AppConfig.appTitle,
-                            style: GoogleFonts.cairo(
+                            style: GoogleFonts.alexandria(
                               color: Colors.white,
                               fontSize: 28,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
+                              letterSpacing: 0.4,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             AppConfig.tagline,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: GoogleFonts.alexandria(
                               color: Colors.white.withValues(alpha: 0.80),
                               fontSize: 14.5,
                               height: 1.6,
@@ -287,8 +287,6 @@ class _StateBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ctrl = ref.read(syncControllerProvider.notifier);
-
     switch (state) {
       case SyncInitial():
       case SyncChecking():
@@ -312,28 +310,26 @@ class _StateBody extends ConsumerWidget {
         );
 
       case SyncWaitingWifi():
-        return _Message(
+        return const _Message(
           icon: Icons.wifi_rounded,
           text: 'في انتظار الاتصال بشبكة واي فاي.',
           buttonLabel: 'تحقّق مجددًا',
-          onPressed: ctrl.retry,
         );
 
       case SyncOfflineState():
-        return _Message(
+        return const _Message(
           icon: Icons.wifi_off_rounded,
-          text:
-              'لا يوجد اتصال بالإنترنت.\nالتطبيق يحتاج للاتصال مرة واحدة لتحميل المحتوى.',
+          title: 'تعذّر تجهيز المحتوى',
+          text: 'تحقّق من الاتصال ثم حاول مرة أخرى',
           buttonLabel: 'إعادة المحاولة',
-          onPressed: ctrl.retry,
         );
 
-      case SyncErrorState(:final message):
-        return _Message(
+      case SyncErrorState():
+        return const _Message(
           icon: Icons.error_outline_rounded,
-          text: message,
+          title: 'تعذّر تجهيز المحتوى',
+          text: 'تحقّق من الاتصال ثم حاول مرة أخرى',
           buttonLabel: 'إعادة المحاولة',
-          onPressed: ctrl.retry,
         );
 
       case SyncDone():
@@ -341,7 +337,6 @@ class _StateBody extends ConsumerWidget {
           loop: loop,
           statusText: 'اكتمل التجهيز',
           progress: 1,
-          animateEllipsis: false,
         );
     }
   }
@@ -354,7 +349,6 @@ class _ProgressPanel extends StatelessWidget {
     required this.statusText,
     required this.progress,
     this.counterLine,
-    this.animateEllipsis = true,
   });
 
   final AnimationController loop;
@@ -363,7 +357,6 @@ class _ProgressPanel extends StatelessWidget {
   /// null = indeterminate (checking), 0..1 = real progress.
   final double? progress;
   final ({int done, int total})? counterLine;
-  final bool animateEllipsis;
 
   @override
   Widget build(BuildContext context) {
@@ -382,7 +375,12 @@ class _ProgressPanel extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         // Rounded track + pulsing gradient fill.
-        ClipRRect(
+        Semantics(
+          label: 'نسبة التقدم',
+          value: progress == null
+              ? null
+              : '${((progress ?? 0) * 100).round()}٪',
+          child: ClipRRect(
           borderRadius: BorderRadius.circular(99),
           child: SizedBox(
             height: 8,
@@ -431,6 +429,7 @@ class _ProgressPanel extends StatelessWidget {
               },
             ),
           ),
+        ),
         ),
         if (counterLine != null) ...[
           const SizedBox(height: 12),
@@ -494,41 +493,59 @@ class _ProgressPanel extends StatelessWidget {
   }
 }
 
-class _Message extends StatelessWidget {
+class _Message extends ConsumerWidget {
   const _Message({
     required this.icon,
     required this.text,
     required this.buttonLabel,
-    required this.onPressed,
+    this.title,
   });
 
   final IconData icon;
   final String text;
   final String buttonLabel;
-  final VoidCallback onPressed;
+  final String? title;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, color: Colors.white, size: 44),
         const SizedBox(height: 16),
+        if (title != null) ...[
+          Semantics(
+            header: true,
+            child: Text(
+              title!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.alexandria(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
         Text(
           text,
           textAlign: TextAlign.center,
-          style: GoogleFonts.cairo(
-            color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 15,
+          style: GoogleFonts.alexandria(
+            color: Colors.white.withValues(alpha: 0.85),
+            fontSize: 14.5,
             height: 1.7,
           ),
         ),
         const SizedBox(height: 24),
         FilledButton(
-          onPressed: onPressed,
+          onPressed: () =>
+              ref.read(syncControllerProvider.notifier).retry(),
           style: FilledButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: _bgTop,
+            minimumSize: const Size(140, 48), // >=44dp touch target
           ),
           child: Text(buttonLabel),
         ),
