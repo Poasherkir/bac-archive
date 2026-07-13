@@ -35,6 +35,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final yearsAsync = ref.watch(yearsProvider);
     final scheme = Theme.of(context).colorScheme;
+    // Dot on the settings icon whenever a non-default setting is active.
+    final settingsActive = ref.watch(themeModeProvider) != ThemeMode.system;
 
     return Scaffold(
       body: SafeArea(
@@ -77,8 +79,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     IconButton(
                       tooltip: 'الإعدادات',
                       onPressed: () => _showSettingsSheet(context),
-                      icon: Icon(Icons.tune_rounded,
-                          color: scheme.onSurfaceVariant, size: 24),
+                      icon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(Icons.settings_outlined,
+                              color: scheme.onSurfaceVariant, size: 24),
+                          if (settingsActive)
+                            Positioned(
+                              top: -1,
+                              left: -1,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: scheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
