@@ -51,13 +51,13 @@ class _SubjectCardState extends State<SubjectCard> {
               button: true,
               label: widget.label,
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
@@ -72,7 +72,7 @@ class _SubjectCardState extends State<SubjectCard> {
                       child: Icon(iconForSubject(widget.label),
                           color: accent, size: 26),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Text(
                       widget.label,
                       textAlign: TextAlign.center,

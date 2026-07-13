@@ -48,21 +48,21 @@ class _YearCardState extends ConsumerState<YearCard> {
           onTap: widget.onTap,
           onHighlightChanged: (v) => setState(() => _pressed = v),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.14),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.calendar_month_rounded,
-                          color: accent, size: 24),
+                          color: accent, size: 22),
                     ),
                     const Spacer(),
                     if (widget.isLatest)

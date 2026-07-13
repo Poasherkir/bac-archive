@@ -67,7 +67,7 @@ class YearScreen extends ConsumerWidget {
                   maxCrossAxisExtent: 240,
                   mainAxisSpacing: 16,
                   crossAxisSpacing: 16,
-                  childAspectRatio: 0.95,
+                  childAspectRatio: 1.02,
                 ),
                 itemCount: kBrowseSubjects.length,
                 itemBuilder: (context, i) {
