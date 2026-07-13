@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bacsci/models/exam.dart';
 import 'package:bacsci/providers/manifest_providers.dart';
+import 'package:bacsci/providers/providers.dart';
 import 'package:bacsci/screens/home_screen.dart';
 import 'package:bacsci/widgets/year_card.dart';
 
@@ -16,9 +18,11 @@ Exam _exam(String year, String subject) => Exam(
       fileSizeBytes: 1000,
     );
 
-Widget _app(List<Exam> manifest) => ProviderScope(
+Widget _app(SharedPreferences prefs, List<Exam> manifest) => ProviderScope(
       overrides: [
         manifestProvider.overrideWith((ref) async => manifest),
+        // HomeScreen watches themeModeProvider (settings dot), which reads prefs.
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
       child: const MaterialApp(
         locale: Locale('ar'),
@@ -29,10 +33,15 @@ Widget _app(List<Exam> manifest) => ProviderScope(
       ),
     );
 
+Future<SharedPreferences> _prefs() async {
+  SharedPreferences.setMockInitialValues({});
+  return SharedPreferences.getInstance();
+}
+
 void main() {
   testWidgets('renders one card per distinct year, newest first with badge',
       (tester) async {
-    await tester.pumpWidget(_app([
+    await tester.pumpWidget(_app(await _prefs(), [
       _exam('2022', 'رياضيات'),
       _exam('2024', 'رياضيات'),
       _exam('2024', 'فيزياء'), // same year, should not duplicate
@@ -49,7 +58,7 @@ void main() {
   });
 
   testWidgets('search filters the year grid', (tester) async {
-    await tester.pumpWidget(_app([
+    await tester.pumpWidget(_app(await _prefs(), [
       _exam('2024', 'رياضيات'),
       _exam('2023', 'رياضيات'),
     ]));
@@ -65,7 +74,7 @@ void main() {
   });
 
   testWidgets('shows empty state when manifest is empty', (tester) async {
-    await tester.pumpWidget(_app([]));
+    await tester.pumpWidget(_app(await _prefs(), []));
     await tester.pumpAndSettle();
 
     expect(find.text('لا يوجد محتوى بعد.'), findsOneWidget);
