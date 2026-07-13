@@ -42,7 +42,20 @@ class _YearCardState extends ConsumerState<YearCard> {
       duration: const Duration(milliseconds: 110),
       curve: Curves.easeInOutCubic,
       child: Card(
-        elevation: widget.isLatest ? 3 : 1,
+        elevation: widget.isLatest ? 2 : 1,
+        // Latest year: pale primary tint + soft outline (stronger than the
+        // badge alone, still quiet).
+        color: widget.isLatest
+            ? Color.alphaBlend(
+                scheme.primary.withValues(alpha: 0.05), scheme.surface)
+            : null,
+        shape: widget.isLatest
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(
+                    color: scheme.primary.withValues(alpha: 0.45), width: 1.2),
+              )
+            : null,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: widget.onTap,
