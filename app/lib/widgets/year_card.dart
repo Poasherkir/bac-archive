@@ -30,8 +30,9 @@ class _YearCardState extends ConsumerState<YearCard> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = yearAccent(widget.year);
     final scheme = Theme.of(context).colorScheme;
+    // One brand color for all years — subject colors carry identity instead.
+    final accent = scheme.primary;
     // Subject count derives from data that already exists in the cached
     // manifest (no new model fields).
     final subjectCount =
