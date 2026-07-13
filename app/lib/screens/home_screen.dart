@@ -232,7 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.info_outline_rounded),
-                  title: const Text('حول التطبيق'),
+                  title: const Text('عن التطبيق'),
                   onTap: () {
                     Navigator.of(ctx).pop();
                     showAboutDialog(
