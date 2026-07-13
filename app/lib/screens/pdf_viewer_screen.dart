@@ -148,8 +148,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               color: scheme.onPrimary,
               disabledColor: scheme.onPrimary.withValues(alpha: 0.35),
               iconSize: 22,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.chevron_right_rounded),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: const Icon(Icons.chevron_right_rounded,
+                  textDirection: TextDirection.ltr),
               tooltip: 'السابق',
               onPressed: _current > 1
                   ? () => _controller?.previousPage(
@@ -173,8 +174,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               color: scheme.onPrimary,
               disabledColor: scheme.onPrimary.withValues(alpha: 0.35),
               iconSize: 22,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.chevron_left_rounded),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: const Icon(Icons.chevron_left_rounded,
+                  textDirection: TextDirection.ltr),
               tooltip: 'التالي',
               onPressed: (_total == 0 || _current < _total)
                   ? () => _controller?.nextPage(

@@ -156,7 +156,8 @@ class _FileButton extends StatelessWidget {
                   ),
                 )
               else
-                Icon(Icons.chevron_left_rounded, color: scheme.onPrimary),
+                Icon(Icons.chevron_left_rounded,
+                    textDirection: TextDirection.ltr, color: scheme.onPrimary),
             ],
           ),
         ),
