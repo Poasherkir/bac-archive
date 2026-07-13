@@ -295,7 +295,7 @@ class _StateBody extends ConsumerWidget {
       case SyncNeedWifiConfirm():
         return _ProgressPanel(
           loop: loop,
-          statusText: 'جاري تجهيز المحتوى',
+          statusText: 'جارٍ تجهيز الأرشيف…',
           progress: null,
         );
 
@@ -306,7 +306,7 @@ class _StateBody extends ConsumerWidget {
         ):
         return _ProgressPanel(
           loop: loop,
-          statusText: 'جاري تحميل المحتوى',
+          statusText: 'جارٍ تجهيز الأرشيف…',
           progress: progress,
           counterLine: (done: filesDone, total: filesTotal),
         );
@@ -370,36 +370,30 @@ class _ProgressPanel extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Status line with animated ellipsis.
-        AnimatedBuilder(
-          animation: loop,
-          builder: (context, _) {
-            final dots =
-                animateEllipsis ? '.' * (((loop.value * 4).floor() % 4)) : '';
-            return Text(
-              '$statusText$dots',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 15.5,
-                fontWeight: FontWeight.w400,
-              ),
-            );
-          },
+        Text(
+          statusText,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.alexandria(
+            color: Colors.white,
+            fontSize: 15.5,
+            fontWeight: FontWeight.w400,
+            height: 1.6,
+          ),
         ),
         const SizedBox(height: 18),
         // Rounded track + pulsing gradient fill.
         ClipRRect(
           borderRadius: BorderRadius.circular(99),
           child: SizedBox(
-            height: 7,
+            height: 8,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final w = constraints.maxWidth;
                 return AnimatedBuilder(
                   animation: loop,
                   builder: (context, _) {
-                    final pulse = 0.72 +
-                        0.28 *
+                    final pulse = 0.85 +
+                        0.15 *
                             (0.5 +
                                 0.5 *
                                     math.sin(loop.value * 2 * math.pi));
@@ -441,19 +435,22 @@ class _ProgressPanel extends StatelessWidget {
         if (counterLine != null) ...[
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${counterLine!.done} من ${counterLine!.total} ملف',
-                style: GoogleFonts.cairo(
-                  color: Colors.white.withValues(alpha: 0.70),
-                  fontSize: 12.5,
+              Expanded(
+                child: Text(
+                  '${counterLine!.done} من ${counterLine!.total} ملفًا',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.alexandria(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 12.5,
+                  ),
                 ),
               ),
               Text(
-                '${((progress ?? 0) * 100).round()}%',
-                style: GoogleFonts.cairo(
-                  color: Colors.white.withValues(alpha: 0.70),
+                '${((progress ?? 0) * 100).round()}٪',
+                style: GoogleFonts.alexandria(
+                  color: Colors.white.withValues(alpha: 0.75),
                   fontSize: 12.5,
                 ),
               ),
@@ -465,14 +462,33 @@ class _ProgressPanel extends StatelessWidget {
   }
 
   Widget _fill(double pulse) {
+    // Blue-dominant fill (white -> light blue) with a tiny warm accent at
+    // the leading edge (left end under RTL, where the fill advances).
     return Opacity(
       opacity: pulse,
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, _amber],
+      child: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, Color(0xFFBFDBFE)],
+              ),
+            ),
           ),
-        ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 12,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_amber, Color(0x00FBBF24)],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
