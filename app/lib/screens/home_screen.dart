@@ -21,6 +21,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _query = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -112,6 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 delayFraction: 0.15,
                 fromOffset: const Offset(0, -0.5),
                 child: HomeSearchBar(
+                  controller: _searchCtrl,
                   onChanged: (v) => setState(() => _query = v.trim()),
                 ),
               ),
@@ -137,9 +145,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                   }
                   if (filtered.isEmpty) {
-                    return const CenteredHint(
+                    return CenteredHint(
                       icon: Icons.search_off_rounded,
-                      text: 'لا توجد نتائج مطابقة.',
+                      text: 'لا توجد نتائج لـ «$_query»',
+                      action: FilledButton.tonal(
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                        child: const Text('مسح البحث'),
+                      ),
                     );
                   }
 
