@@ -7,7 +7,6 @@ import '../providers/browse_mode.dart';
 import '../providers/delta_sync.dart';
 import '../providers/theme_mode.dart';
 import '../providers/manifest_providers.dart';
-import '../providers/providers.dart';
 import '../providers/selected_stream.dart';
 import '../widgets/home_search_bar.dart';
 import '../widgets/ui_helpers.dart';
@@ -85,26 +84,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               height: 1.5,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () => _showSettingsSheet(context),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: scheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              child: Text(
-                                'شعبة ${ref.watch(activeStreamProvider)}',
-                                style: TextStyle(
-                                  color: scheme.onPrimaryContainer,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -136,7 +115,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // ------------------------ stream selector ------------------------
+            // Prominent on Home: switching is a pure local filter (all
+            // streams are downloaded up front) — instant and offline.
+            SizedBox(
+              height: 40,
+              child: Entrance(
+                delayFraction: 0.1,
+                fromOffset: const Offset(0, -0.4),
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: [
+                    for (final st in kStreams) ...[
+                      ChoiceChip(
+                        label: Text(st.label),
+                        selected:
+                            ref.watch(activeStreamProvider) == st.label,
+                        onSelected: (_) => _switchStream(st.label),
+                        labelStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: ref.watch(activeStreamProvider) == st.label
+                              ? scheme.onPrimaryContainer
+                              : scheme.onSurfaceVariant,
+                        ),
+                        selectedColor: scheme.primaryContainer,
+                        backgroundColor: scheme.surface,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(99),
+                          side: BorderSide(color: scheme.outline),
+                        ),
+                        showCheckmark: false,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             // -------------------------- search bar --------------------------
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -263,18 +282,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _query = '');
   }
 
-  /// Change the active stream. Already-synced streams show instantly from
-  /// their cached manifest; new streams route through the sync screen,
-  /// which downloads only the files missing locally (shared PDFs are
-  /// already on disk).
+  /// Change the active stream — a pure local filter over the fully-synced
+  /// archive, so it works instantly and offline.
   Future<void> _switchStream(String label) async {
     await ref.read(selectedStreamProvider.notifier).set(label);
-    final slug = ref.read(activeStreamSlugProvider);
-    final store = ref.read(localStoreProvider);
     _clearSearch();
-    if (!store.isSyncCompleteFor(slug) && mounted) {
-      context.go('/sync');
-    }
   }
 
   /// Settings sheet: theme mode selector + about entry. UI-only.
@@ -293,39 +305,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      'الشعبة',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(ctx).colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-                RadioGroup<String>(
-                  groupValue: ref.watch(activeStreamProvider),
-                  onChanged: (label) {
-                    if (label == null) return;
-                    Navigator.of(ctx).pop();
-                    _switchStream(label);
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final st in kStreams)
-                        RadioListTile<String>(
-                          value: st.label,
-                          title: Text('شعبة ${st.label}'),
-                        ),
-                    ],
-                  ),
-                ),
-                const Divider(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: Text(

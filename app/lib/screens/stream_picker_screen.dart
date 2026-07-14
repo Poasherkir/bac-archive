@@ -51,7 +51,7 @@ class StreamPickerScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'اختر شعبتك لتحميل مواضيعها والدراسة دون إنترنت',
+                  'اختر شعبتك — وسيتم تحميل جميع الشعب للمطالعة دون إنترنت',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.alexandria(
                     color: Colors.white.withValues(alpha: 0.85),
@@ -75,7 +75,7 @@ class StreamPickerScreen extends ConsumerWidget {
                 ],
                 const Spacer(flex: 2),
                 Text(
-                  'يمكنك تغيير الشعبة لاحقًا من الإعدادات',
+                  'يمكنك التنقل بين الشعب في أي وقت من الشاشة الرئيسية',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.alexandria(
                     color: Colors.white.withValues(alpha: 0.65),
