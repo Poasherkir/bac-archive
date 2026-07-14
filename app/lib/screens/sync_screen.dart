@@ -9,15 +9,19 @@ import '../config/app_config.dart';
 import '../providers/sync_controller.dart';
 import '../utils/format.dart';
 
-// Splash palette (kept local: this screen predates theming on purpose —
-// it must look right before anything else loads).
-const _bgTop = Color(0xFF1E3A8A);
-const _bgBottom = Color(0xFF3B5FE0);
-const _amber = Color(0xFFFBBF24);
+// Splash palette (local on purpose: this screen must look right before
+// anything else loads).
+const _bgTop = Color(0xFF1E3A8A); // deep blue
+const _bgRoyal = Color(0xFF2B4FD8); // royal blue
+const _panelInk = Color(0xFF0F172A); // dark text on the pale panel
+const _panelMuted = Color(0xFF64748B);
+const _panelBlue = Color(0xFF2563EB);
 
-/// First-launch "Preparing Content" screen. Fetches the manifest, warns on
-/// mobile data, downloads every PDF with progress, then flags sync complete
-/// and moves to Home — after which the app never shows this screen again.
+/// First-launch "Preparing Content" screen.
+///
+/// Two-zone composition: a brand zone (gradient, glass icon, title) over a
+/// pale bottom status panel bound to the real sync state machine. Navigates
+/// to Home after a brief success state once preparation completes.
 class SyncScreen extends ConsumerStatefulWidget {
   const SyncScreen({super.key});
 
@@ -28,11 +32,12 @@ class SyncScreen extends ConsumerStatefulWidget {
 class _SyncScreenState extends ConsumerState<SyncScreen>
     with TickerProviderStateMixin {
   bool _wifiDialogOpen = false;
+  bool _navigated = false;
 
-  // One-shot staggered intro: icon -> title -> progress area.
+  // One-shot staggered intro: icon -> title -> panel.
   late final AnimationController _intro = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1100),
+    duration: const Duration(milliseconds: 1000),
   )..forward();
 
   late final Animation<double> _iconIn = CurvedAnimation(
@@ -41,14 +46,14 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
   );
   late final Animation<double> _titleIn = CurvedAnimation(
     parent: _intro,
-    curve: const Interval(0.25, 0.70, curve: Curves.easeInOut),
+    curve: const Interval(0.20, 0.65, curve: Curves.easeInOut),
   );
-  late final Animation<double> _bodyIn = CurvedAnimation(
+  late final Animation<double> _panelIn = CurvedAnimation(
     parent: _intro,
-    curve: const Interval(0.50, 1.0, curve: Curves.easeInOut),
+    curve: const Interval(0.40, 1.0, curve: Curves.easeInOut),
   );
 
-  // Shared repeating driver: page-flip, bar pulse, animated ellipsis.
+  // Repeating driver for the subtle page-flip on the icon.
   late final AnimationController _loop = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1800),
@@ -72,8 +77,12 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
   @override
   Widget build(BuildContext context) {
     ref.listen<SyncState>(syncControllerProvider, (prev, next) {
-      if (next is SyncDone) {
-        context.go('/');
+      if (next is SyncDone && !_navigated) {
+        _navigated = true;
+        // Brief success state ("اكتمل تجهيز الأرشيف") before moving on.
+        Future.delayed(const Duration(milliseconds: 900), () {
+          if (context.mounted) context.go('/');
+        });
       } else if (next is SyncNeedWifiConfirm && !_wifiDialogOpen) {
         _showWifiDialog(next);
       }
@@ -87,60 +96,88 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgTop, _bgBottom],
+            colors: [_bgTop, _bgRoyal],
           ),
         ),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Faint decorative circles — static paint, ≤6% opacity.
-            const CustomPaint(painter: _BubblesPainter()),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  children: [
-                    const Spacer(flex: 3),
-                    _Staggered(
-                      animation: _iconIn,
-                      child: _FlippingBook(loop: _loop),
-                    ),
-                    const SizedBox(height: 26),
-                    _Staggered(
-                      animation: _titleIn,
+            // Soft radial "mesh" light behind the brand zone.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0, -0.55),
+                  radius: 1.1,
+                  colors: [Color(0x2E93C5FD), Color(0x00000000)],
+                ),
+              ),
+            ),
+            // Faint academic document-line pattern (brand zone only).
+            const CustomPaint(painter: _DocLinesPainter()),
+            Column(
+              children: [
+                // ------------------- brand zone (~58%) -------------------
+                Expanded(
+                  flex: 11,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            AppConfig.appTitle,
-                            style: GoogleFonts.alexandria(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.4,
-                            ),
+                          _Staggered(
+                            animation: _iconIn,
+                            child: _GlassBookIcon(loop: _loop),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            AppConfig.tagline,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.alexandria(
-                              color: Colors.white.withValues(alpha: 0.80),
-                              fontSize: 14.5,
-                              height: 1.6,
+                          const SizedBox(height: 26),
+                          _Staggered(
+                            animation: _titleIn,
+                            child: Column(
+                              children: [
+                                Semantics(
+                                  header: true,
+                                  child: Text(
+                                    AppConfig.appTitle,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.alexandria(
+                                      color: Colors.white,
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.3,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'مواضيع البكالوريا منظمة حسب السنة والمادة',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.alexandria(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 14.5,
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Spacer(flex: 2),
-                    _Staggered(
-                      animation: _bodyIn,
-                      child: _StateBody(state: state, loop: _loop),
-                    ),
-                    const Spacer(flex: 3),
-                  ],
+                  ),
                 ),
-              ),
+                // -------------- download-status panel (~42%) --------------
+                Expanded(
+                  flex: 8,
+                  child: _Staggered(
+                    animation: _panelIn,
+                    fromOffset: const Offset(0, 0.10),
+                    child: _StatusPanel(state: state),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -185,9 +222,15 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
 
 /// Fade + small upward slide, driven by one interval of the intro controller.
 class _Staggered extends StatelessWidget {
-  const _Staggered({required this.animation, required this.child});
+  const _Staggered({
+    required this.animation,
+    required this.child,
+    this.fromOffset = const Offset(0, 0.05),
+  });
+
   final Animation<double> animation;
   final Widget child;
+  final Offset fromOffset;
 
   @override
   Widget build(BuildContext context) {
@@ -196,8 +239,8 @@ class _Staggered extends StatelessWidget {
       child: AnimatedBuilder(
         animation: animation,
         child: child,
-        builder: (context, c) => Transform.translate(
-          offset: Offset(0, 14 * (1 - animation.value)),
+        builder: (context, c) => FractionalTranslation(
+          translation: fromOffset * (1 - animation.value),
           child: c,
         ),
       ),
@@ -205,30 +248,38 @@ class _Staggered extends StatelessWidget {
   }
 }
 
-/// Book icon with a soft glow and a subtle page flipping right-to-left.
-class _FlippingBook extends StatelessWidget {
-  const _FlippingBook({required this.loop});
+/// The book icon inside a premium glass circle: translucent blue surface,
+/// hairline border, inner top highlight, restrained outer glow — plus the
+/// existing subtle right-to-left page flip.
+class _GlassBookIcon extends StatelessWidget {
+  const _GlassBookIcon({required this.loop});
   final AnimationController loop;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 132,
-      height: 132,
+      width: 140,
+      height: 140,
       alignment: Alignment.center,
-      // Glass-style circle: translucent fill + hairline border + a soft
-      // blue radial glow behind (subtle, not neon).
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.08),
+        // Inner highlight: brighter at the top, fading down.
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.05),
+          ],
+        ),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.white.withValues(alpha: 0.22),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF93C5FD).withValues(alpha: 0.28),
-            blurRadius: 42,
+            color: const Color(0xFF93C5FD).withValues(alpha: 0.25),
+            blurRadius: 38,
             spreadRadius: 2,
           ),
         ],
@@ -240,7 +291,6 @@ class _FlippingBook extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             const Icon(Icons.menu_book_rounded, size: 76, color: Colors.white),
-            // The flipping page, hinged at the book's spine (center).
             Positioned(
               left: 48,
               top: 20,
@@ -248,9 +298,6 @@ class _FlippingBook extends StatelessWidget {
                 animation: loop,
                 builder: (context, _) {
                   final t = Curves.easeInOut.transform(loop.value);
-                  final angle = -math.pi * t;
-                  // Fade the page out at the end of the sweep so the loop
-                  // restart is invisible.
                   final fade = t < 0.82 ? 1.0 : (1 - (t - 0.82) / 0.18);
                   return Opacity(
                     opacity: 0.85 * fade.clamp(0.0, 1.0),
@@ -258,7 +305,7 @@ class _FlippingBook extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       transform: Matrix4.identity()
                         ..setEntry(3, 2, 0.0016)
-                        ..rotateY(angle),
+                        ..rotateY(-math.pi * t),
                       child: Container(
                         width: 26,
                         height: 40,
@@ -279,178 +326,164 @@ class _FlippingBook extends StatelessWidget {
   }
 }
 
-/// The part of the screen that changes with sync state.
-class _StateBody extends ConsumerWidget {
-  const _StateBody({required this.state, required this.loop});
+/// Bottom floating panel: pale surface, 30dp rounded top corners, dark
+/// readable text. Renders loading / success / problem variants from the
+/// real sync state.
+class _StatusPanel extends StatelessWidget {
+  const _StatusPanel({required this.state});
+
   final SyncState state;
-  final AnimationController loop;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xF7F8FAFC), // near-white with faint translucency
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 26,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          // Never clips under large font scaling; scrolls only if needed.
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: _body(),
+        ),
+      ),
+    );
+  }
+
+  Widget _body() {
     switch (state) {
       case SyncInitial():
       case SyncChecking():
       case SyncNeedWifiConfirm():
-        return _ProgressPanel(
-          loop: loop,
-          statusText: 'جارٍ تجهيز الأرشيف…',
-          progress: null,
-        );
+        return const _LoadingBody(progress: null);
 
       case SyncDownloading(
           :final filesDone,
           :final filesTotal,
           :final progress
         ):
-        return _ProgressPanel(
-          loop: loop,
-          statusText: 'جارٍ تجهيز الأرشيف…',
+        return _LoadingBody(
           progress: progress,
-          counterLine: (done: filesDone, total: filesTotal),
+          counter: (done: filesDone, total: filesTotal),
         );
 
+      case SyncDone():
+        return const _LoadingBody(progress: 1, success: true);
+
       case SyncWaitingWifi():
-        return const _Message(
-          icon: Icons.wifi_rounded,
-          text: 'في انتظار الاتصال بشبكة واي فاي.',
+        return const _ProblemBody(
+          title: 'في انتظار شبكة واي فاي',
+          support: 'سيبدأ التنزيل عند الاتصال، أو تحقّق الآن',
           buttonLabel: 'تحقّق مجددًا',
         );
 
       case SyncOfflineState():
-        return const _Message(
-          icon: Icons.wifi_off_rounded,
-          title: 'تعذّر تجهيز المحتوى',
-          text: 'تحقّق من الاتصال ثم حاول مرة أخرى',
-          buttonLabel: 'إعادة المحاولة',
-        );
-
       case SyncErrorState():
-        return const _Message(
-          icon: Icons.error_outline_rounded,
+        return const _ProblemBody(
           title: 'تعذّر تجهيز المحتوى',
-          text: 'تحقّق من الاتصال ثم حاول مرة أخرى',
+          support: 'تحقّق من الاتصال ثم حاول مرة أخرى',
           buttonLabel: 'إعادة المحاولة',
-        );
-
-      case SyncDone():
-        return _ProgressPanel(
-          loop: loop,
-          statusText: 'اكتمل التجهيز',
-          progress: 1,
         );
     }
   }
 }
 
-/// Rounded gradient progress bar + animated status line + counter/percent row.
-class _ProgressPanel extends StatelessWidget {
-  const _ProgressPanel({
-    required this.loop,
-    required this.statusText,
-    required this.progress,
-    this.counterLine,
-  });
-
-  final AnimationController loop;
-  final String statusText;
-
-  /// null = indeterminate (checking), 0..1 = real progress.
-  final double? progress;
-  final ({int done, int total})? counterLine;
+/// Small blue section label shared by all panel variants.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel();
 
   @override
   Widget build(BuildContext context) {
+    return Text(
+      'تجهيز مكتبتك',
+      style: GoogleFonts.alexandria(
+        color: _panelBlue,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+/// Loading / success content of the panel.
+class _LoadingBody extends StatelessWidget {
+  const _LoadingBody({
+    required this.progress,
+    this.counter,
+    this.success = false,
+  });
+
+  /// null = indeterminate; 0..1 = real progress (already NaN/zero-safe
+  /// upstream: SyncDownloading.progress clamps and guards bytesTotal <= 0).
+  final double? progress;
+  final ({int done, int total})? counter;
+  final bool success;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = ((progress ?? 0) * 100).round().clamp(0, 100);
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _SectionLabel(),
+        const SizedBox(height: 8),
         Text(
-          statusText,
-          textAlign: TextAlign.center,
+          success ? 'اكتمل تجهيز الأرشيف' : 'جارٍ تجهيز الأرشيف…',
           style: GoogleFonts.alexandria(
-            color: Colors.white,
-            fontSize: 15.5,
-            fontWeight: FontWeight.w400,
+            color: _panelInk,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'سيصبح المحتوى متاحًا دون اتصال بالإنترنت',
+          style: GoogleFonts.alexandria(
+            color: _panelMuted,
+            fontSize: 13,
             height: 1.6,
           ),
         ),
         const SizedBox(height: 18),
-        // Rounded track + pulsing gradient fill.
         Semantics(
           label: 'نسبة التقدم',
-          value: progress == null
-              ? null
-              : '${((progress ?? 0) * 100).round()}٪',
-          child: ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: SizedBox(
-            height: 8,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                return AnimatedBuilder(
-                  animation: loop,
-                  builder: (context, _) {
-                    final pulse = 0.85 +
-                        0.15 *
-                            (0.5 +
-                                0.5 *
-                                    math.sin(loop.value * 2 * math.pi));
-                    // Indeterminate: a sweeping segment; determinate: fill.
-                    if (progress == null) {
-                      final x = (loop.value * 1.4 - 0.2) * w;
-                      return Stack(
-                        children: [
-                          Container(color: Colors.white24),
-                          Positioned(
-                            left: x,
-                            width: w * 0.35,
-                            top: 0,
-                            bottom: 0,
-                            child: _fill(pulse),
-                          ),
-                        ],
-                      );
-                    }
-                    final frac = progress!.clamp(0.02, 1.0);
-                    return Stack(
-                      children: [
-                        Container(color: Colors.white24),
-                        Positioned(
-                          right: 0, // RTL: fill grows from the right
-                          width: w * frac,
-                          top: 0,
-                          bottom: 0,
-                          child: _fill(pulse),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
+          value: progress == null ? null : '$pct٪',
+          child: _ProgressBar(progress: progress, success: success),
         ),
-        ),
-        if (counterLine != null) ...[
-          const SizedBox(height: 12),
+        if (counter != null) ...[
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: Text(
-                  '${counterLine!.done} من ${counterLine!.total} ملفًا',
+                  '${counter!.done} من ${counter!.total} ملفًا',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.alexandria(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: 12.5,
+                    color: const Color(0xFF334155),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               Text(
-                '${((progress ?? 0) * 100).round()}٪',
+                '$pct٪',
                 style: GoogleFonts.alexandria(
-                  color: Colors.white.withValues(alpha: 0.75),
-                  fontSize: 12.5,
+                  color: _panelInk,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -459,93 +492,171 @@ class _ProgressPanel extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _fill(double pulse) {
-    // Blue-dominant fill (white -> light blue) with a tiny warm accent at
-    // the leading edge (left end under RTL, where the fill advances).
-    return Opacity(
-      opacity: pulse,
-      child: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.white, Color(0xFFBFDBFE)],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 12,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_amber, Color(0x00FBBF24)],
+/// Prominent rounded bar. Determinate progress animates smoothly between
+/// values; indeterminate shows a gentle sweep. RTL: fill grows from the right.
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.progress, this.success = false});
+
+  final double? progress;
+  final bool success;
+
+  @override
+  Widget build(BuildContext context) {
+    const trackColor = Color(0xFFE2E8F0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: SizedBox(
+        height: 10,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            if (progress == null) {
+              return const _IndeterminateSweep(trackColor: trackColor);
+            }
+            final frac = progress!.clamp(0.0, 1.0);
+            return Stack(
+              children: [
+                Container(color: trackColor),
+                AnimatedPositioned(
+                  // Smooth movement between real progress updates.
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOut,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: math.max(w * frac, frac > 0 ? 10.0 : 0.0),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: success
+                            ? const [Color(0xFF16A34A), Color(0xFF22C55E)]
+                            : const [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-class _Message extends ConsumerWidget {
-  const _Message({
-    required this.icon,
-    required this.text,
+/// Self-contained indeterminate sweep for the checking phase.
+class _IndeterminateSweep extends StatefulWidget {
+  const _IndeterminateSweep({required this.trackColor});
+  final Color trackColor;
+
+  @override
+  State<_IndeterminateSweep> createState() => _IndeterminateSweepState();
+}
+
+class _IndeterminateSweepState extends State<_IndeterminateSweep>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        return AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final x = (1 - _c.value * 1.4 + 0.2) * w;
+            return Stack(
+              children: [
+                Container(color: widget.trackColor),
+                Positioned(
+                  left: x,
+                  width: w * 0.35,
+                  top: 0,
+                  bottom: 0,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Error / waiting variant of the panel with a full-width primary action
+/// that triggers the real initialization retry.
+class _ProblemBody extends ConsumerWidget {
+  const _ProblemBody({
+    required this.title,
+    required this.support,
     required this.buttonLabel,
-    this.title,
   });
 
-  final IconData icon;
-  final String text;
+  final String title;
+  final String support;
   final String buttonLabel;
-  final String? title;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Colors.white, size: 44),
-        const SizedBox(height: 16),
-        if (title != null) ...[
-          Semantics(
-            header: true,
-            child: Text(
-              title!,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.alexandria(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
+        const _SectionLabel(),
+        const SizedBox(height: 8),
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: GoogleFonts.alexandria(
+              color: _panelInk,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 6),
-        ],
+        ),
+        const SizedBox(height: 4),
         Text(
-          text,
-          textAlign: TextAlign.center,
+          support,
           style: GoogleFonts.alexandria(
-            color: Colors.white.withValues(alpha: 0.85),
-            fontSize: 14.5,
-            height: 1.7,
+            color: _panelMuted,
+            fontSize: 13,
+            height: 1.6,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         FilledButton(
-          onPressed: () =>
-              ref.read(syncControllerProvider.notifier).retry(),
+          onPressed: () => ref.read(syncControllerProvider.notifier).retry(),
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: _bgTop,
-            minimumSize: const Size(140, 48), // >=44dp touch target
+            backgroundColor: _panelBlue,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(52), // full width, >=44dp
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            textStyle: GoogleFonts.alexandria(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           child: Text(buttonLabel),
         ),
@@ -554,14 +665,12 @@ class _Message extends ConsumerWidget {
   }
 }
 
-/// Static, very faint "document line" clusters — an academic nod that adds
-/// depth without noise. Painted once, never repaints.
-class _BubblesPainter extends CustomPainter {
-  const _BubblesPainter();
+/// Static, very faint "document line" clusters in the brand zone.
+/// Painted once, never repaints.
+class _DocLinesPainter extends CustomPainter {
+  const _DocLinesPainter();
 
   void _docLines(Canvas canvas, Offset origin, double width, Paint paint) {
-    // A small abstract paragraph: 3 rounded lines, last one shorter (RTL:
-    // lines anchored to the right edge of the cluster).
     const lineH = 5.0;
     const gap = 12.0;
     for (var i = 0; i < 3; i++) {
@@ -581,10 +690,11 @@ class _BubblesPainter extends CustomPainter {
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.05);
     final w = size.width;
     final h = size.height;
-    _docLines(canvas, Offset(w * 0.70, h * 0.09), w * 0.20, paint);
-    _docLines(canvas, Offset(w * 0.08, h * 0.20), w * 0.16, paint);
-    _docLines(canvas, Offset(w * 0.78, h * 0.68), w * 0.16, paint);
-    _docLines(canvas, Offset(w * 0.10, h * 0.84), w * 0.20, paint);
+    // Brand zone only (upper ~58%).
+    _docLines(canvas, Offset(w * 0.70, h * 0.08), w * 0.20, paint);
+    _docLines(canvas, Offset(w * 0.08, h * 0.17), w * 0.16, paint);
+    _docLines(canvas, Offset(w * 0.76, h * 0.40), w * 0.16, paint);
+    _docLines(canvas, Offset(w * 0.10, h * 0.48), w * 0.18, paint);
   }
 
   @override
