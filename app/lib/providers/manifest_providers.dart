@@ -56,5 +56,31 @@ final subjectsWithContentProvider =
       .toSet();
 });
 
+/// Number of years with content per subject label, e.g. {'رياضيات': 19}.
+/// One fold over the cached manifest — no per-card queries, fully offline.
+final subjectYearCountsProvider =
+    FutureProvider<Map<String, int>>((ref) async {
+  final exams = await ref.watch(manifestProvider.future);
+  final years = <String, Set<String>>{};
+  for (final e in exams) {
+    if (e.hasAnyFile) {
+      (years[e.subject] ??= <String>{}).add(e.year);
+    }
+  }
+  return years.map((subject, ys) => MapEntry(subject, ys.length));
+});
+
+/// Every exam row for one subject across all years, newest year first.
+/// Powers the subject-first browsing flow. Offline, from the cached manifest.
+final examsBySubjectProvider =
+    FutureProvider.family<List<Exam>, String>((ref, subject) async {
+  final exams = await ref.watch(manifestProvider.future);
+  final rows = exams
+      .where((e) => e.subject == subject && e.hasAnyFile)
+      .toList()
+    ..sort((a, b) => b.year.compareTo(a.year)); // 4-digit strings sort fine
+  return rows;
+});
+
 /// Convenience: the fixed subject list this app browses.
 const kBrowseSubjects = kSubjects;
