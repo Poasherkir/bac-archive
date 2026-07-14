@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
+import '../providers/browse_mode.dart';
 import '../providers/delta_sync.dart';
 import '../providers/theme_mode.dart';
 import '../providers/manifest_providers.dart';
 import '../widgets/home_search_bar.dart';
 import '../widgets/ui_helpers.dart';
+import '../widgets/subject_card.dart';
 import '../widgets/year_card.dart';
 
 /// Home: large header, M3 search bar, compact year grid (newest first).
@@ -42,6 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final yearsAsync = ref.watch(yearsProvider);
     final scheme = Theme.of(context).colorScheme;
+    final mode = ref.watch(browseModeProvider);
     // Dot on the settings icon whenever a non-default setting is active.
     final settingsActive = ref.watch(themeModeProvider) != ThemeMode.system;
 
@@ -121,13 +124,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: HomeSearchBar(
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _query = v.trim()),
+                  hint: mode == BrowseMode.bySubject
+                      ? 'ابحث عن مادة...'
+                      : 'ابحث عن سنة...',
+                  keyboardType: mode == BrowseMode.bySubject
+                      ? TextInputType.text
+                      : TextInputType.number,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // ----------------------- browse-mode toggle ----------------------
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Entrance(
+                delayFraction: 0.25,
+                fromOffset: const Offset(0, -0.4),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<BrowseMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: BrowseMode.byYear,
+                        label: Text('حسب السنة'),
+                        icon: Icon(Icons.calendar_month_rounded, size: 18),
+                      ),
+                      ButtonSegment(
+                        value: BrowseMode.bySubject,
+                        label: Text('حسب المادة'),
+                        icon: Icon(Icons.menu_book_rounded, size: 18),
+                      ),
+                    ],
+                    selected: {mode},
+                    onSelectionChanged: (sel) {
+                      ref.read(browseModeProvider.notifier).set(sel.first);
+                      _clearSearch();
+                    },
+                    showSelectedIcon: false,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             // -------------------------- year grid ---------------------------
             Expanded(
-              child: yearsAsync.when(
+              child: mode == BrowseMode.bySubject
+                  ? _SubjectGrid(query: _query, onClear: _clearSearch)
+                  : yearsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => const CenteredHint(
                   icon: Icons.error_outline_rounded,
@@ -185,12 +228,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   );
                 },
-              ),
+                    ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    setState(() => _query = '');
   }
 
   /// Settings sheet: theme mode selector + about entry. UI-only.
@@ -266,6 +314,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+
+/// Subject-first entry grid: same card style as the year screen, with a
+/// real year-count subtitle derived from the cached manifest.
+class _SubjectGrid extends ConsumerWidget {
+  const _SubjectGrid({required this.query, required this.onClear});
+
+  final String query;
+  final VoidCallback onClear;
+
+  String _countLabel(int n) {
+    if (n <= 0) return 'لم تُضف بعد';
+    if (n == 1) return 'متوفر في سنة واحدة';
+    if (n == 2) return 'متوفر في سنتين';
+    if (n <= 10) return 'متوفر في $n سنوات';
+    return 'متوفر في $n سنة';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final counts =
+        ref.watch(subjectYearCountsProvider).value ?? const <String, int>{};
+    final filtered = query.isEmpty
+        ? kBrowseSubjects
+        : kBrowseSubjects.where((s) => s.label.contains(query)).toList();
+
+    if (filtered.isEmpty) {
+      return CenteredHint(
+        icon: Icons.search_off_rounded,
+        text: 'لا توجد نتائج لـ «$query»',
+        action: FilledButton.tonal(
+          onPressed: onClear,
+          child: const Text('مسح البحث'),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 240,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 1.02,
+      ),
+      itemCount: filtered.length,
+      itemBuilder: (context, i) {
+        final s = filtered[i];
+        final n = counts[s.label] ?? 0;
+        return Entrance(
+          delayFraction: (i % 10) * 0.05,
+          duration: const Duration(milliseconds: 800),
+          child: SubjectCard(
+            label: s.label,
+            slug: s.slug,
+            hasContent: n > 0,
+            subtitle: _countLabel(n),
+            onTap: () => context.push('/subject/${s.slug}'),
+          ),
+        );
+      },
     );
   }
 }
