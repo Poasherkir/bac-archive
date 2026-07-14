@@ -57,6 +57,49 @@ const List<Subject> kSubjects = [
   Subject('تربية إسلامية', 'islamique'),
 ];
 
+/// Technical-stream-only subject. When per-specialization papers are added
+/// later (ميكانيكية/كهربائية/مدنية/طرائق) they become additional Subject
+/// entries here — the schema already supports it.
+const kSubjectTechno = Subject('تكنولوجيا', 'techno');
+
+/// Every subject any stream can reference (slug <-> label lookups).
+const List<Subject> kAllSubjects = [...kSubjects, kSubjectTechno];
+
+/// A Baccalaureate stream supported by the app.
+class StreamInfo {
+  const StreamInfo(this.label, this.slug);
+  final String label;
+  final String slug;
+}
+
+const List<StreamInfo> kStreams = [
+  StreamInfo('علوم تجريبية', 'sci'),
+  StreamInfo('رياضيات', 'math'),
+  StreamInfo('تقني رياضي', 'tm'),
+];
+
+/// Subjects browsed by each stream (hash-verified against the archive:
+/// رياضيات includes its own SVT papers; تقني رياضي has no SVT but adds
+/// the technical subject).
+List<Subject> subjectsForStream(String streamLabel) {
+  switch (streamLabel) {
+    case 'تقني رياضي':
+      return const [
+        Subject('رياضيات', 'maths'),
+        Subject('فيزياء', 'physique'),
+        kSubjectTechno,
+        Subject('عربية', 'arabe'),
+        Subject('فرنسية', 'francais'),
+        Subject('إنجليزية', 'anglais'),
+        Subject('فلسفة', 'philo'),
+        Subject('تاريخ وجغرافيا', 'histoire-geo'),
+        Subject('تربية إسلامية', 'islamique'),
+      ];
+    default: // علوم تجريبية and رياضيات share the same subject list
+      return kSubjects;
+  }
+}
+
 /// The three file kinds per (year, subject) entry.
 enum ExamFileKind {
   sujet('الموضوع', 'sujet.pdf'),
