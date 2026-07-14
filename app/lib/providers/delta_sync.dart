@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import 'manifest_providers.dart';
 import 'providers.dart';
+import 'selected_stream.dart';
 
 /// Runs the silent, no-UI background sync once per app session (on Home mount).
 /// If offline, it does nothing and the app keeps working from local storage.
@@ -26,7 +27,10 @@ class DeltaSync {
           results.isEmpty || results.every((c) => c == ConnectivityResult.none);
       if (offline) return; // work from local storage, no check
 
-      final changed = await _ref.read(syncServiceProvider).runDeltaSync();
+      final changed = await _ref.read(syncServiceProvider).runDeltaSync(
+        stream: _ref.read(activeStreamProvider),
+        slug: _ref.read(activeStreamSlugProvider),
+      );
       if (changed) {
         // New/updated content arrived — refresh the offline manifest views.
         _ref.invalidate(manifestProvider);

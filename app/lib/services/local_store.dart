@@ -17,11 +17,16 @@ class LocalStore {
   final SharedPreferences _prefs;
   Directory? _base;
 
-  static const kSyncCompleteKey = 'sync_complete';
+  static const kSyncCompleteKey = 'sync_complete'; // legacy (= sciences)
 
-  bool get isSyncComplete => _prefs.getBool(kSyncCompleteKey) ?? false;
-  Future<void> setSyncComplete(bool value) =>
-      _prefs.setBool(kSyncCompleteKey, value);
+  /// Per-stream completion. The legacy single flag counts as sciences so
+  /// already-synced installs never re-run first-launch sync after updating.
+  bool isSyncCompleteFor(String slug) =>
+      (_prefs.getBool('sync_complete_$slug') ?? false) ||
+      (slug == 'sci' && (_prefs.getBool(kSyncCompleteKey) ?? false));
+
+  Future<void> setSyncCompleteFor(String slug) =>
+      _prefs.setBool('sync_complete_$slug', true);
 
   Future<Directory> baseDir() async {
     if (_base != null) return _base!;
@@ -54,18 +59,22 @@ class LocalStore {
       File(await localPathForUrl(url)).exists();
 
   // --- manifest cache (drives the fully-offline Home) -----------------------
-  Future<File> _manifestFile() async =>
-      File('${(await baseDir()).path}/manifest.json');
+  Future<File> _manifestFile(String slug) async =>
+      File('${(await baseDir()).path}/manifest_$slug.json');
 
-  Future<void> saveManifest(List<Exam> exams) async {
-    final file = await _manifestFile();
+  Future<void> saveManifest(String slug, List<Exam> exams) async {
+    final file = await _manifestFile(slug);
     await file.writeAsString(
       jsonEncode(exams.map((e) => e.toMap()).toList()),
     );
   }
 
-  Future<List<Exam>> readManifest() async {
-    final file = await _manifestFile();
+  Future<List<Exam>> readManifest(String slug) async {
+    var file = await _manifestFile(slug);
+    if (!await file.exists() && slug == 'sci') {
+      // Legacy single-stream manifest from pre-multi-stream installs.
+      file = File('${(await baseDir()).path}/manifest.json');
+    }
     if (!await file.exists()) return [];
     final decoded = jsonDecode(await file.readAsString()) as List;
     return decoded

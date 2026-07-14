@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../models/exam.dart';
 import 'providers.dart';
+import 'selected_stream.dart';
 
 /// The cached manifest, read from local storage. This is the ONLY source the
 /// browsing screens use — no network calls to view anything.
 final manifestProvider = FutureProvider<List<Exam>>((ref) async {
-  return ref.watch(localStoreProvider).readManifest();
+  // Keyed to the active stream: switching streams reloads automatically.
+  final slug = ref.watch(activeStreamSlugProvider);
+  return ref.watch(localStoreProvider).readManifest(slug);
 });
 
 /// Distinct years present in the archive, newest first.
@@ -82,5 +85,4 @@ final examsBySubjectProvider =
   return rows;
 });
 
-/// Convenience: the fixed subject list this app browses.
-const kBrowseSubjects = kSubjects;
+
