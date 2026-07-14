@@ -9,19 +9,32 @@ import '../config/app_config.dart';
 import '../providers/sync_controller.dart';
 import '../utils/format.dart';
 
-// Splash palette (local on purpose: this screen must look right before
-// anything else loads).
-const _bgTop = Color(0xFF1E3A8A); // deep blue
+// ---------------------------------------------------------------------------
+// Palette (local on purpose: this screen must look right before anything
+// else — theme, fonts, cached data — has loaded).
+// ---------------------------------------------------------------------------
+const _bgTop = Color(0xFF16307E); // deep academic blue
 const _bgRoyal = Color(0xFF2B4FD8); // royal blue
-const _panelInk = Color(0xFF0F172A); // dark text on the pale panel
-const _panelMuted = Color(0xFF64748B);
-const _panelBlue = Color(0xFF2563EB);
+const _ink = Color(0xFF0F172A);
+const _muted = Color(0xFF64748B);
+const _blue = Color(0xFF2563EB);
+const _blueBright = Color(0xFF3B82F6);
+const _amber = Color(0xFFF59E0B);
 
-/// First-launch "Preparing Content" screen.
+/// Archive preparation screen (first launch only).
 ///
-/// Two-zone composition: a brand zone (gradient, glass icon, title) over a
-/// pale bottom status panel bound to the real sync state machine. Navigates
-/// to Home after a brief success state once preparation completes.
+/// Pure UI over the untouched [SyncController] state machine: fetches the
+/// manifest, downloads every PDF with real progress, flags completion and
+/// hands off to Home. Composition:
+///
+///   SyncScreen
+///   ├── _AnimatedBackground   gradient, drifting glows, dot grid, particles
+///   ├── _HeroIllustration     fanned exam-paper stack (floating/breathing)
+///   ├── _HeaderSection        title + subtitle
+///   └── _ProgressCard         floating M3 surface
+///       ├── _AnimatedProgressBar   gradient fill, glow edge, shimmer
+///       ├── _DownloadStatistics    animated counts + per-file check pulse
+///       └── _FooterStatus          expectation-setting caption
 class SyncScreen extends ConsumerStatefulWidget {
   const SyncScreen({super.key});
 
@@ -34,29 +47,36 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
   bool _wifiDialogOpen = false;
   bool _navigated = false;
 
-  // One-shot staggered intro: icon -> title -> panel.
+  // One-shot staggered entrance: hero -> header -> card.
   late final AnimationController _intro = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1000),
+    duration: const Duration(milliseconds: 1050),
   )..forward();
 
-  late final Animation<double> _iconIn = CurvedAnimation(
+  late final Animation<double> _heroIn = CurvedAnimation(
     parent: _intro,
-    curve: const Interval(0.0, 0.45, curve: Curves.easeInOut),
+    curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
   );
-  late final Animation<double> _titleIn = CurvedAnimation(
+  late final Animation<double> _headerIn = CurvedAnimation(
     parent: _intro,
-    curve: const Interval(0.20, 0.65, curve: Curves.easeInOut),
+    curve: const Interval(0.2, 0.7, curve: Curves.easeInOut),
   );
-  late final Animation<double> _panelIn = CurvedAnimation(
+  late final Animation<double> _cardIn = CurvedAnimation(
     parent: _intro,
-    curve: const Interval(0.40, 1.0, curve: Curves.easeInOut),
+    curve: const Interval(0.45, 1.0, curve: Curves.easeInOut),
   );
 
-  // Repeating driver for the subtle page-flip on the icon.
-  late final AnimationController _loop = AnimationController(
+  // Slow ambient driver shared by the background and the hero (12s cycle
+  // keeps motion calm and cheap — a single ticker for all drift).
+  late final AnimationController _drift = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1800),
+    duration: const Duration(seconds: 12),
+  )..repeat();
+
+  // Faster loop for the shimmer sweep on the progress fill.
+  late final AnimationController _shimmer = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
   )..repeat();
 
   @override
@@ -70,7 +90,8 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
   @override
   void dispose() {
     _intro.dispose();
-    _loop.dispose();
+    _drift.dispose();
+    _shimmer.dispose();
     super.dispose();
   }
 
@@ -79,7 +100,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
     ref.listen<SyncState>(syncControllerProvider, (prev, next) {
       if (next is SyncDone && !_navigated) {
         _navigated = true;
-        // Brief success state ("اكتمل تجهيز الأرشيف") before moving on.
+        // Brief success beat ("اكتمل تجهيز الأرشيف") before moving on.
         Future.delayed(const Duration(milliseconds: 900), () {
           if (context.mounted) context.go('/');
         });
@@ -91,96 +112,33 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
     final state = ref.watch(syncControllerProvider);
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_bgTop, _bgRoyal],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Soft radial "mesh" light behind the brand zone.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0, -0.55),
-                  radius: 1.1,
-                  colors: [Color(0x2E93C5FD), Color(0x00000000)],
-                ),
-              ),
-            ),
-            // Faint academic document-line pattern (brand zone only).
-            const CustomPaint(painter: _DocLinesPainter()),
-            Column(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          RepaintBoundary(child: _AnimatedBackground(drift: _drift)),
+          SafeArea(
+            child: Column(
               children: [
-                // ------------------- brand zone (~58%) -------------------
-                Expanded(
-                  flex: 11,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _Staggered(
-                            animation: _iconIn,
-                            child: _GlassBookIcon(loop: _loop),
-                          ),
-                          const SizedBox(height: 26),
-                          _Staggered(
-                            animation: _titleIn,
-                            child: Column(
-                              children: [
-                                Semantics(
-                                  header: true,
-                                  child: Text(
-                                    AppConfig.appTitle,
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.alexandria(
-                                      color: Colors.white,
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.3,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'مواضيع البكالوريا منظمة حسب السنة والمادة',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.alexandria(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.85),
-                                    fontSize: 14.5,
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                const Spacer(flex: 5),
+                _Staggered(
+                  animation: _heroIn,
+                  child: RepaintBoundary(
+                    child: _HeroIllustration(drift: _drift),
                   ),
                 ),
-                // -------------- download-status panel (~42%) --------------
-                Expanded(
-                  flex: 8,
-                  child: _Staggered(
-                    animation: _panelIn,
-                    fromOffset: const Offset(0, 0.10),
-                    child: _StatusPanel(state: state),
-                  ),
+                const Spacer(flex: 2),
+                _Staggered(animation: _headerIn, child: const _HeaderSection()),
+                const Spacer(flex: 3),
+                _Staggered(
+                  animation: _cardIn,
+                  fromOffset: const Offset(0, 0.12),
+                  child: _ProgressCard(state: state, shimmer: _shimmer),
                 ),
+                const SizedBox(height: 14),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -220,6 +178,10 @@ class _SyncScreenState extends ConsumerState<SyncScreen>
   }
 }
 
+// ---------------------------------------------------------------------------
+// Entrance helper
+// ---------------------------------------------------------------------------
+
 /// Fade + small upward slide, driven by one interval of the intro controller.
 class _Staggered extends StatelessWidget {
   const _Staggered({
@@ -248,75 +210,273 @@ class _Staggered extends StatelessWidget {
   }
 }
 
-/// The book icon inside a premium glass circle: translucent blue surface,
-/// hairline border, inner top highlight, restrained outer glow — plus the
-/// existing subtle right-to-left page flip.
-class _GlassBookIcon extends StatelessWidget {
-  const _GlassBookIcon({required this.loop});
-  final AnimationController loop;
+// ---------------------------------------------------------------------------
+// Background
+// ---------------------------------------------------------------------------
+
+/// Gradient base + two slowly drifting glows + static dot grid + a few
+/// rising particles. One repaint boundary, one shared ticker.
+class _AnimatedBackground extends StatelessWidget {
+  const _AnimatedBackground({required this.drift});
+  final AnimationController drift;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      height: 140,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        // Inner highlight: brighter at the top, fading down.
+    return DecoratedBox(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: 0.16),
-            Colors.white.withValues(alpha: 0.05),
-          ],
+          colors: [_bgTop, _bgRoyal],
         ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.22),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF93C5FD).withValues(alpha: 0.25),
-            blurRadius: 38,
-            spreadRadius: 2,
-          ),
-        ],
       ),
+      child: AnimatedBuilder(
+        animation: drift,
+        builder: (context, _) => CustomPaint(
+          painter: _BackgroundPainter(t: drift.value),
+        ),
+      ),
+    );
+  }
+}
+
+class _BackgroundPainter extends CustomPainter {
+  _BackgroundPainter({required this.t});
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final wave = math.sin(t * 2 * math.pi);
+
+    // Two big soft glows, drifting a few pixels in opposite phases.
+    final glow1 = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF93C5FD).withValues(alpha: 0.20),
+          Colors.transparent,
+        ],
+      ).createShader(
+        Rect.fromCircle(
+          center: Offset(w * 0.5 + wave * 8, h * 0.24),
+          radius: w * 0.62,
+        ),
+      );
+    canvas.drawCircle(
+        Offset(w * 0.5 + wave * 8, h * 0.24), w * 0.62, glow1);
+
+    final glow2 = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF60A5FA).withValues(alpha: 0.10),
+          Colors.transparent,
+        ],
+      ).createShader(
+        Rect.fromCircle(
+          center: Offset(w * 0.15 - wave * 6, h * 0.72),
+          radius: w * 0.55,
+        ),
+      );
+    canvas.drawCircle(
+        Offset(w * 0.15 - wave * 6, h * 0.72), w * 0.55, glow2);
+
+    // Static dot grid over the upper half — quiet academic texture.
+    final dot = Paint()..color = Colors.white.withValues(alpha: 0.045);
+    const spacing = 30.0;
+    for (var y = spacing; y < h * 0.52; y += spacing) {
+      for (var x = spacing / 2; x < w; x += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.1, dot);
+      }
+    }
+
+    // A few rising particles (slow, faint, wrap around).
+    const seeds = [
+      (x: 0.12, phase: 0.0, r: 2.2),
+      (x: 0.85, phase: 0.35, r: 1.8),
+      (x: 0.30, phase: 0.6, r: 1.5),
+      (x: 0.68, phase: 0.82, r: 2.0),
+    ];
+    for (final s in seeds) {
+      final p = (s.phase + t) % 1.0;
+      final y = h * (0.9 - 0.75 * p);
+      // Fade in near the bottom, out near the top.
+      final fade = math.sin(p * math.pi);
+      canvas.drawCircle(
+        Offset(w * s.x, y),
+        s.r,
+        Paint()..color = Colors.white.withValues(alpha: 0.10 * fade),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BackgroundPainter old) => old.t != t;
+}
+
+// ---------------------------------------------------------------------------
+// Hero
+// ---------------------------------------------------------------------------
+
+/// Custom hero: a fanned stack of exam papers with layered shadows, RTL
+/// text lines, a grade seal and an amber bookmark — floating and breathing
+/// on the shared drift ticker. No stock icons.
+class _HeroIllustration extends StatelessWidget {
+  const _HeroIllustration({required this.drift});
+  final AnimationController drift;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: drift,
+      builder: (context, child) {
+        final t = drift.value * 2 * math.pi;
+        return Transform.translate(
+          offset: Offset(0, 5 * math.sin(t)),
+          child: Transform.rotate(
+            angle: 0.012 * math.sin(t / 2),
+            child: Transform.scale(
+              scale: 1 + 0.015 * math.sin(t + math.pi / 3),
+              child: child,
+            ),
+          ),
+        );
+      },
       child: SizedBox(
-        width: 96,
-        height: 84,
+        width: 210,
+        height: 190,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            const Icon(Icons.menu_book_rounded, size: 76, color: Colors.white),
-            Positioned(
-              left: 48,
-              top: 20,
-              child: AnimatedBuilder(
-                animation: loop,
-                builder: (context, _) {
-                  final t = Curves.easeInOut.transform(loop.value);
-                  final fade = t < 0.82 ? 1.0 : (1 - (t - 0.82) / 0.18);
-                  return Opacity(
-                    opacity: 0.85 * fade.clamp(0.0, 1.0),
-                    child: Transform(
-                      alignment: Alignment.centerLeft,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.0016)
-                        ..rotateY(-math.pi * t),
-                      child: Container(
-                        width: 26,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(3),
+            // Soft glow disc behind the stack.
+            Container(
+              width: 190,
+              height: 190,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF93C5FD).withValues(alpha: 0.30),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+            _paper(angle: -0.16, dx: -26, dy: 8, tint: const Color(0xFFDBEAFE)),
+            _paper(angle: 0.10, dx: 24, dy: 4, tint: const Color(0xFFEFF6FF)),
+            _frontPaper(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A background sheet in the fan.
+  Widget _paper({
+    required double angle,
+    required double dx,
+    required double dy,
+    required Color tint,
+  }) {
+    return Transform.translate(
+      offset: Offset(dx, dy),
+      child: Transform.rotate(
+        angle: angle,
+        child: Container(
+          width: 104,
+          height: 138,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [Colors.white, tint],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x40101E45),
+                blurRadius: 18,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The front sheet: RTL text lines, blue grade seal, amber bookmark.
+  Widget _frontPaper() {
+    return Transform.rotate(
+      angle: -0.02,
+      child: Container(
+        width: 112,
+        height: 148,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Color(0xFFF3F7FF)],
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x59101E45),
+              blurRadius: 22,
+              offset: Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Amber bookmark ribbon (warm accent).
+            PositionedDirectional(
+              start: 16,
+              top: -2,
+              child: Container(
+                width: 12,
+                height: 26,
+                decoration: const BoxDecoration(
+                  color: _amber,
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+            // RTL "exam text" lines.
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(14, 34, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _line(0.9), _line(0.75), _line(0.85), _line(0.6),
+                  const Spacer(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Grade seal.
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [_blue, _blueBright],
+                          ),
                         ),
+                        child: const Icon(Icons.check_rounded,
+                            size: 18, color: Colors.white),
                       ),
-                    ),
-                  );
-                },
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [_line(0.35, width: 34), _line(0.5, width: 46)],
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -324,38 +484,101 @@ class _GlassBookIcon extends StatelessWidget {
       ),
     );
   }
+
+  Widget _line(double frac, {double? width}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Container(
+        width: width ?? 84 * frac,
+        height: 5,
+        decoration: BoxDecoration(
+          color: const Color(0xFFCBD5E1),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+    );
+  }
 }
 
-/// Bottom floating panel: pale surface, 30dp rounded top corners, dark
-/// readable text. Renders loading / success / problem variants from the
-/// real sync state.
-class _StatusPanel extends StatelessWidget {
-  const _StatusPanel({required this.state});
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+
+class _HeaderSection extends StatelessWidget {
+  const _HeaderSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              AppConfig.appTitle,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.alexandria(
+                color: Colors.white,
+                fontSize: 31,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                height: 1.3,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'مواضيع البكالوريا منظمة حسب السنة والمادة',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.alexandria(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 14.5,
+              height: 1.7,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Progress card
+// ---------------------------------------------------------------------------
+
+/// Floating Material 3 surface hosting the live download status.
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.state, required this.shimmer});
 
   final SyncState state;
+  final AnimationController shimmer;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xF7F8FAFC), // near-white with faint translucency
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [
+      margin: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFAFFFFFF),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+        boxShadow: const [
           BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 26,
-            offset: Offset(0, -8),
+            color: Color(0x26000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Color(0x40101E45),
+            blurRadius: 40,
+            offset: Offset(0, 18),
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          // Never clips under large font scaling; scrolls only if needed.
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-          child: _body(),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+        child: _body(),
       ),
     );
   }
@@ -365,7 +588,7 @@ class _StatusPanel extends StatelessWidget {
       case SyncInitial():
       case SyncChecking():
       case SyncNeedWifiConfirm():
-        return const _LoadingBody(progress: null);
+        return _LoadingBody(progress: null, shimmer: shimmer);
 
       case SyncDownloading(
           :final filesDone,
@@ -375,10 +598,11 @@ class _StatusPanel extends StatelessWidget {
         return _LoadingBody(
           progress: progress,
           counter: (done: filesDone, total: filesTotal),
+          shimmer: shimmer,
         );
 
       case SyncDone():
-        return const _LoadingBody(progress: 1, success: true);
+        return _LoadingBody(progress: 1, success: true, shimmer: shimmer);
 
       case SyncWaitingWifi():
         return const _ProblemBody(
@@ -398,37 +622,53 @@ class _StatusPanel extends StatelessWidget {
   }
 }
 
-/// Small blue section label shared by all panel variants.
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel();
+/// Card header: tinted icon chip + section label.
+class _CardHeader extends StatelessWidget {
+  const _CardHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      'تجهيز مكتبتك',
-      style: GoogleFonts.alexandria(
-        color: _panelBlue,
-        fontSize: 12.5,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.2,
-      ),
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFDBEAFE),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child:
+              const Icon(Icons.local_library_rounded, size: 19, color: _blue),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'تجهيز مكتبتك',
+          style: GoogleFonts.alexandria(
+            color: _blue,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Loading / success content of the panel.
+/// Loading / success content.
 class _LoadingBody extends StatelessWidget {
   const _LoadingBody({
     required this.progress,
+    required this.shimmer,
     this.counter,
     this.success = false,
   });
 
-  /// null = indeterminate; 0..1 = real progress (already NaN/zero-safe
-  /// upstream: SyncDownloading.progress clamps and guards bytesTotal <= 0).
+  /// null = indeterminate; 0..1 = real progress (NaN/zero-safe upstream).
   final double? progress;
   final ({int done, int total})? counter;
   final bool success;
+  final AnimationController shimmer;
 
   @override
   Widget build(BuildContext context) {
@@ -436,71 +676,64 @@ class _LoadingBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel(),
-        const SizedBox(height: 8),
+        const _CardHeader(),
+        const SizedBox(height: 12),
         Text(
           success ? 'اكتمل تجهيز الأرشيف' : 'جارٍ تجهيز الأرشيف…',
           style: GoogleFonts.alexandria(
-            color: _panelInk,
+            color: _ink,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             height: 1.4,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         Text(
           'سيصبح المحتوى متاحًا دون اتصال بالإنترنت',
           style: GoogleFonts.alexandria(
-            color: _panelMuted,
-            fontSize: 13,
+            color: _muted,
+            fontSize: 12.5,
             height: 1.6,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         Semantics(
           label: 'نسبة التقدم',
           value: progress == null ? null : '$pct٪',
-          child: _ProgressBar(progress: progress, success: success),
+          child: _AnimatedProgressBar(
+            progress: progress,
+            success: success,
+            shimmer: shimmer,
+          ),
         ),
         if (counter != null) ...[
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${counter!.done} من ${counter!.total} ملفًا',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.alexandria(
-                    color: const Color(0xFF334155),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Text(
-                '$pct٪',
-                style: GoogleFonts.alexandria(
-                  color: _panelInk,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+          _DownloadStatistics(counter: counter!, pct: pct),
         ],
+        const SizedBox(height: 10),
+        const _FooterStatus(),
       ],
     );
   }
 }
 
-/// Prominent rounded bar. Determinate progress animates smoothly between
-/// values; indeterminate shows a gentle sweep. RTL: fill grows from the right.
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.progress, this.success = false});
+// ---------------------------------------------------------------------------
+// Progress bar
+// ---------------------------------------------------------------------------
+
+/// Rounded gradient bar with a glowing leading edge and a shimmer sweep
+/// while downloading. Fill growth is eased — no abrupt jumps. RTL: the fill
+/// grows from the right.
+class _AnimatedProgressBar extends StatelessWidget {
+  const _AnimatedProgressBar({
+    required this.progress,
+    required this.shimmer,
+    this.success = false,
+  });
 
   final double? progress;
   final bool success;
+  final AnimationController shimmer;
 
   @override
   Widget build(BuildContext context) {
@@ -508,38 +741,95 @@ class _ProgressBar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(99),
       child: SizedBox(
-        height: 10,
+        height: 12,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
             if (progress == null) {
-              return const _IndeterminateSweep(trackColor: trackColor);
+              return _IndeterminateSweep(trackColor: trackColor);
             }
             final frac = progress!.clamp(0.0, 1.0);
+            final fillW = math.max(w * frac, frac > 0 ? 12.0 : 0.0);
             return Stack(
               children: [
                 Container(color: trackColor),
                 AnimatedPositioned(
-                  // Smooth movement between real progress updates.
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOut,
+                  duration: const Duration(milliseconds: 380),
+                  curve: Curves.easeOutCubic,
                   right: 0,
                   top: 0,
                   bottom: 0,
-                  width: math.max(w * frac, frac > 0 ? 10.0 : 0.0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: success
-                            ? const [Color(0xFF16A34A), Color(0xFF22C55E)]
-                            : const [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+                  width: fillW,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: success
+                                ? const [Color(0xFF16A34A), Color(0xFF22C55E)]
+                                : const [Color(0xFF1D4ED8), _blueBright],
+                          ),
+                        ),
                       ),
-                    ),
+                      // Shimmer sweep across the fill while downloading.
+                      if (!success)
+                        AnimatedBuilder(
+                          animation: shimmer,
+                          builder: (context, _) {
+                            final x = (shimmer.value * 1.6 - 0.3) * fillW;
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: x,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: 44,
+                                  child: const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color(0x00FFFFFF),
+                                          Color(0x59FFFFFF),
+                                          Color(0x00FFFFFF),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      // Glowing leading edge (left end under RTL).
+                      if (!success)
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: _LeadingGlow(),
+                        ),
+                    ],
                   ),
                 ),
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Small luminous cap on the advancing end of the fill.
+class _LeadingGlow extends StatelessWidget {
+  const _LeadingGlow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 14,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xB3FFFFFF), Color(0x00FFFFFF)],
         ),
       ),
     );
@@ -588,7 +878,7 @@ class _IndeterminateSweepState extends State<_IndeterminateSweep>
                   child: const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+                        colors: [Color(0xFF1D4ED8), _blueBright],
                       ),
                     ),
                   ),
@@ -602,8 +892,109 @@ class _IndeterminateSweepState extends State<_IndeterminateSweep>
   }
 }
 
-/// Error / waiting variant of the panel with a full-width primary action
-/// that triggers the real initialization retry.
+// ---------------------------------------------------------------------------
+// Statistics
+// ---------------------------------------------------------------------------
+
+/// File counter + percentage with smooth number animation and a small
+/// check pulse each time a file lands.
+class _DownloadStatistics extends StatelessWidget {
+  const _DownloadStatistics({required this.counter, required this.pct});
+
+  final ({int done, int total}) counter;
+  final int pct;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.description_outlined, size: 15, color: _muted),
+        const SizedBox(width: 6),
+        // Animated file count (eases between real values).
+        TweenAnimationBuilder<double>(
+          tween: Tween(end: counter.done.toDouble()),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+          builder: (context, v, _) => Text(
+            '${v.round()} من ${counter.total} ملفًا',
+            style: GoogleFonts.alexandria(
+              color: const Color(0xFF334155),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Per-file micro reward: check pops on each completed file.
+        if (counter.done > 0)
+          TweenAnimationBuilder<double>(
+            key: ValueKey(counter.done),
+            tween: Tween(begin: 0.4, end: 1),
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.elasticOut,
+            builder: (context, s, c) => Transform.scale(scale: s, child: c),
+            child: Container(
+              width: 15,
+              height: 15,
+              decoration: const BoxDecoration(
+                color: Color(0xFFDCFCE7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_rounded,
+                  size: 11, color: Color(0xFF16A34A)),
+            ),
+          ),
+        const Spacer(),
+        // Animated percentage.
+        TweenAnimationBuilder<double>(
+          tween: Tween(end: pct.toDouble()),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+          builder: (context, v, _) => Text(
+            '${v.round()}٪',
+            style: GoogleFonts.alexandria(
+              color: _ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Footer + problem states
+// ---------------------------------------------------------------------------
+
+/// Quiet expectation-setting caption at the bottom of the card.
+class _FooterStatus extends StatelessWidget {
+  const _FooterStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.offline_pin_outlined,
+            size: 13, color: Color(0xFF94A3B8)),
+        const SizedBox(width: 5),
+        Text(
+          'مرة واحدة فقط — ثم يعمل التطبيق دون إنترنت',
+          style: GoogleFonts.alexandria(
+            color: const Color(0xFF94A3B8),
+            fontSize: 11,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Error / waiting variant with a full-width retry action wired to the
+/// real initialization retry.
 class _ProblemBody extends ConsumerWidget {
   const _ProblemBody({
     required this.title,
@@ -620,34 +1011,34 @@ class _ProblemBody extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel(),
-        const SizedBox(height: 8),
+        const _CardHeader(),
+        const SizedBox(height: 12),
         Semantics(
           header: true,
           child: Text(
             title,
             style: GoogleFonts.alexandria(
-              color: _panelInk,
+              color: _ink,
               fontSize: 18,
               fontWeight: FontWeight.w700,
               height: 1.4,
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         Text(
           support,
           style: GoogleFonts.alexandria(
-            color: _panelMuted,
-            fontSize: 13,
+            color: _muted,
+            fontSize: 12.5,
             height: 1.6,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         FilledButton(
           onPressed: () => ref.read(syncControllerProvider.notifier).retry(),
           style: FilledButton.styleFrom(
-            backgroundColor: _panelBlue,
+            backgroundColor: _blue,
             foregroundColor: Colors.white,
             minimumSize: const Size.fromHeight(52), // full width, >=44dp
             shape: RoundedRectangleBorder(
@@ -663,40 +1054,4 @@ class _ProblemBody extends ConsumerWidget {
       ],
     );
   }
-}
-
-/// Static, very faint "document line" clusters in the brand zone.
-/// Painted once, never repaints.
-class _DocLinesPainter extends CustomPainter {
-  const _DocLinesPainter();
-
-  void _docLines(Canvas canvas, Offset origin, double width, Paint paint) {
-    const lineH = 5.0;
-    const gap = 12.0;
-    for (var i = 0; i < 3; i++) {
-      final w = i == 2 ? width * 0.55 : width;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(origin.dx + (width - w), origin.dy + i * gap, w, lineH),
-          const Radius.circular(3),
-        ),
-        paint,
-      );
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.05);
-    final w = size.width;
-    final h = size.height;
-    // Brand zone only (upper ~58%).
-    _docLines(canvas, Offset(w * 0.70, h * 0.08), w * 0.20, paint);
-    _docLines(canvas, Offset(w * 0.08, h * 0.17), w * 0.16, paint);
-    _docLines(canvas, Offset(w * 0.76, h * 0.40), w * 0.16, paint);
-    _docLines(canvas, Offset(w * 0.10, h * 0.48), w * 0.18, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
