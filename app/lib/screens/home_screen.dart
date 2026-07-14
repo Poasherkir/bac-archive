@@ -7,6 +7,8 @@ import '../providers/browse_mode.dart';
 import '../providers/delta_sync.dart';
 import '../providers/theme_mode.dart';
 import '../providers/manifest_providers.dart';
+import '../providers/providers.dart';
+import '../providers/selected_stream.dart';
 import '../widgets/home_search_bar.dart';
 import '../widgets/ui_helpers.dart';
 import '../widgets/subject_card.dart';
@@ -81,6 +83,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               fontSize: 13.5,
                               color: scheme.onSurfaceVariant,
                               height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _showSettingsSheet(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                'شعبة ${ref.watch(activeStreamProvider)}',
+                                style: TextStyle(
+                                  color: scheme.onPrimaryContainer,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -241,6 +263,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _query = '');
   }
 
+  /// Change the active stream. Already-synced streams show instantly from
+  /// their cached manifest; new streams route through the sync screen,
+  /// which downloads only the files missing locally (shared PDFs are
+  /// already on disk).
+  Future<void> _switchStream(String label) async {
+    await ref.read(selectedStreamProvider.notifier).set(label);
+    final slug = ref.read(activeStreamSlugProvider);
+    final store = ref.read(localStoreProvider);
+    _clearSearch();
+    if (!store.isSyncCompleteFor(slug) && mounted) {
+      context.go('/sync');
+    }
+  }
+
   /// Settings sheet: theme mode selector + about entry. UI-only.
   void _showSettingsSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -257,6 +293,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      'الشعبة',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(ctx).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+                RadioGroup<String>(
+                  groupValue: ref.watch(activeStreamProvider),
+                  onChanged: (label) {
+                    if (label == null) return;
+                    Navigator.of(ctx).pop();
+                    _switchStream(label);
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final st in kStreams)
+                        RadioListTile<String>(
+                          value: st.label,
+                          title: Text('شعبة ${st.label}'),
+                        ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: Text(
@@ -339,9 +408,10 @@ class _SubjectGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final counts =
         ref.watch(subjectYearCountsProvider).value ?? const <String, int>{};
+    final subjects = ref.watch(activeSubjectsProvider);
     final filtered = query.isEmpty
-        ? kBrowseSubjects
-        : kBrowseSubjects.where((s) => s.label.contains(query)).toList();
+        ? subjects
+        : subjects.where((s) => s.label.contains(query)).toList();
 
     if (filtered.isEmpty) {
       return CenteredHint(

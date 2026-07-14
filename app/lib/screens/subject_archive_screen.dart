@@ -162,7 +162,7 @@ class _YearBlock extends ConsumerWidget {
   }
 
   String _slugFor(String label) {
-    for (final s in kBrowseSubjects) {
+    for (final s in kAllSubjects) {
       if (s.label == label) return s.slug;
     }
     return label;

@@ -64,6 +64,7 @@ const kSubjectAccents = <String, Color>{
   'anglais': Color(0xFF06B6D4), // english — cyan
   'histoire-geo': Color(0xFF8D6E63), // history/geo — brown
   'philo': Color(0xFF6366F1), // philosophy — indigo
+  'techno': Color(0xFFEA580C), // technology — engineering orange
 };
 
 Color subjectAccent(String slug) =>

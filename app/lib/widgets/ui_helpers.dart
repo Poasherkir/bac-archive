@@ -22,6 +22,8 @@ IconData iconForSubject(String subject) {
       return Icons.public_rounded;
     case 'تربية إسلامية':
       return Icons.mosque_rounded;
+    case 'تكنولوجيا':
+      return Icons.precision_manufacturing_rounded;
     default:
       return Icons.description_rounded;
   }

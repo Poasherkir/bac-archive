@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/manifest_providers.dart';
+import '../providers/selected_stream.dart';
 import '../widgets/breadcrumb.dart';
 import '../widgets/subject_card.dart';
 import '../widgets/ui_helpers.dart';
@@ -18,6 +19,7 @@ class YearScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final available =
         ref.watch(subjectsWithContentProvider(year)).value ?? const <String>{};
+    final subjects = ref.watch(activeSubjectsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -69,9 +71,9 @@ class YearScreen extends ConsumerWidget {
                   crossAxisSpacing: 16,
                   childAspectRatio: 1.02,
                 ),
-                itemCount: kBrowseSubjects.length,
+                itemCount: subjects.length,
                 itemBuilder: (context, i) {
-                  final s = kBrowseSubjects[i];
+                  final s = subjects[i];
                   return Entrance(
                     delayFraction: (i % 10) * 0.05,
                     duration: const Duration(milliseconds: 800),
