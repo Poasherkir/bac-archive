@@ -19,10 +19,14 @@ class LocalStore {
 
   static const kSyncCompleteKey = 'sync_complete'; // legacy (= sciences)
 
-  /// Per-stream completion. The legacy single flag counts as sciences so
-  /// already-synced installs never re-run first-launch sync after updating.
+  /// Completion flags. Any earlier flag (legacy single-stream or per-stream
+  /// sciences) counts as "content present" so updated installs boot straight
+  /// to Home while the delta sync tops up the remaining streams.
   bool isSyncCompleteFor(String slug) =>
       (_prefs.getBool('sync_complete_$slug') ?? false) ||
+      (slug == 'all' &&
+          ((_prefs.getBool(kSyncCompleteKey) ?? false) ||
+              (_prefs.getBool('sync_complete_sci') ?? false))) ||
       (slug == 'sci' && (_prefs.getBool(kSyncCompleteKey) ?? false));
 
   Future<void> setSyncCompleteFor(String slug) =>
@@ -71,9 +75,13 @@ class LocalStore {
 
   Future<List<Exam>> readManifest(String slug) async {
     var file = await _manifestFile(slug);
-    if (!await file.exists() && slug == 'sci') {
-      // Legacy single-stream manifest from pre-multi-stream installs.
-      file = File('${(await baseDir()).path}/manifest.json');
+    if (!await file.exists() && (slug == 'sci' || slug == 'all')) {
+      // Fallbacks for pre-all-streams installs: per-stream sciences
+      // manifest, then the original single-stream file.
+      final sci = await _manifestFile('sci');
+      file = await sci.exists()
+          ? sci
+          : File('${(await baseDir()).path}/manifest.json');
     }
     if (!await file.exists()) return [];
     final decoded = jsonDecode(await file.readAsString()) as List;

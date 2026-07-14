@@ -48,9 +48,10 @@ class SyncService {
   final LocalStore store;
   final Downloader downloader;
 
-  /// Fetch the manifest for [stream] and compute what's missing locally.
-  Future<SyncPlan> buildPlan(String stream) async {
-    final manifest = await repo.fetchManifest(stream);
+  /// Fetch the full manifest and compute what's missing locally. Shared
+  /// entries exist once in the table, so shared PDFs download exactly once.
+  Future<SyncPlan> buildPlan() async {
+    final manifest = await repo.fetchManifest();
     final pending = <DownloadItem>[];
     var totalBytes = 0;
     var pendingBytes = 0;
@@ -77,17 +78,21 @@ class SyncService {
   }
 
   /// Persist the manifest so Home works fully offline next launch.
-  Future<void> commitManifest(String slug, List<Exam> manifest) =>
-      store.saveManifest(slug, manifest);
+  Future<void> commitManifest(List<Exam> manifest) =>
+      store.saveManifest('all', manifest);
 
   /// Silent background sync used on every launch after the first.
   /// Downloads any new files, refreshes the cached manifest, and reports
   /// whether anything visible changed (so the UI can refresh). Individual
   /// download failures are swallowed and retried on the next launch.
-  Future<bool> runDeltaSync(
-      {required String stream, required String slug}) async {
-    final oldManifest = await store.readManifest(slug);
-    final plan = await buildPlan(stream);
+  Future<bool> runDeltaSync() async {
+    return syncFromPlan(await buildPlan());
+  }
+
+  /// Download a plan's pending files (failures deferred to the next launch),
+  /// persist the manifest, and report whether anything visible changed.
+  Future<bool> syncFromPlan(SyncPlan plan) async {
+    final oldManifest = await store.readManifest('all');
 
     var downloadedAny = false;
     for (final item in plan.pending) {
@@ -99,7 +104,7 @@ class SyncService {
       }
     }
 
-    await store.saveManifest(slug, plan.manifest);
+    await store.saveManifest('all', plan.manifest);
     return downloadedAny || !_sameManifest(oldManifest, plan.manifest);
   }
 

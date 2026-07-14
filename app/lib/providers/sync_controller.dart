@@ -5,7 +5,6 @@ import '../config/app_config.dart';
 import '../services/downloader.dart';
 import '../services/sync_service.dart';
 import 'providers.dart';
-import 'selected_stream.dart';
 
 // ---------------------------------------------------------------------------
 // Sync state machine (first-launch "Preparing Content" flow).
@@ -76,8 +75,7 @@ class SyncController extends Notifier<SyncState> {
   /// Entry point from the sync screen. Skips straight to done if a previous
   /// sync already completed.
   Future<void> begin() async {
-    final slug = ref.read(activeStreamSlugProvider);
-    if (ref.read(localStoreProvider).isSyncCompleteFor(slug)) {
+    if (ref.read(localStoreProvider).isSyncCompleteFor('all')) {
       state = const SyncDone();
       return;
     }
@@ -101,9 +99,7 @@ class SyncController extends Notifier<SyncState> {
         return;
       }
 
-      final plan = await ref
-          .read(syncServiceProvider)
-          .buildPlan(ref.read(activeStreamProvider));
+      final plan = await ref.read(syncServiceProvider).buildPlan();
       _plan = plan;
 
       if (plan.isUpToDate) {
@@ -186,10 +182,9 @@ class SyncController extends Notifier<SyncState> {
   }
 
   Future<void> _finish(SyncPlan plan) async {
-    final slug = ref.read(activeStreamSlugProvider);
     final store = ref.read(localStoreProvider);
-    await store.saveManifest(slug, plan.manifest);
-    await store.setSyncCompleteFor(slug);
+    await store.saveManifest('all', plan.manifest);
+    await store.setSyncCompleteFor('all');
     state = const SyncDone();
   }
 

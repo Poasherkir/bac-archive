@@ -6,13 +6,12 @@ import '../models/exam.dart';
 class ExamRepository {
   SupabaseClient get _db => Supabase.instance.client;
 
-  /// The full manifest for [stream], newest year first. Rows are matched on
-  /// the `streams` array so entries shared between streams appear in each.
-  Future<List<Exam>> fetchManifest(String stream) async {
+  /// The full manifest — every stream, newest year first. All streams are
+  /// downloaded up front; the UI filters by the selected stream locally.
+  Future<List<Exam>> fetchManifest() async {
     final rows = await _db
         .from('exams')
         .select()
-        .contains('streams', [stream])
         .order('year', ascending: false);
 
     return (rows as List)

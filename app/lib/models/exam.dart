@@ -8,6 +8,7 @@ class Exam {
     required this.year,
     required this.stream,
     required this.subject,
+    this.streams = const [],
     this.sujetUrl,
     this.solutionUrl,
     this.correctionUrl,
@@ -18,6 +19,9 @@ class Exam {
   final String year;
   final String stream;
   final String subject;
+
+  /// Streams that share this entry (falls back to [stream] when absent).
+  final List<String> streams;
   final String? sujetUrl;
   final String? solutionUrl;
   final String? correctionUrl;
@@ -29,6 +33,8 @@ class Exam {
       year: map['year'].toString(),
       stream: (map['stream'] ?? '') as String,
       subject: (map['subject'] ?? '') as String,
+      streams: (map['streams'] as List?)?.cast<String>() ??
+          [if (map['stream'] != null) map['stream'] as String],
       sujetUrl: map['sujet_url'] as String?,
       solutionUrl: map['solution_url'] as String?,
       correctionUrl: map['correction_url'] as String?,
@@ -41,6 +47,7 @@ class Exam {
         'year': year,
         'stream': stream,
         'subject': subject,
+        'streams': streams,
         'sujet_url': sujetUrl,
         'solution_url': solutionUrl,
         'correction_url': correctionUrl,

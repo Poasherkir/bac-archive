@@ -33,19 +33,15 @@ Future<void> main() async {
     );
   }
 
-  // Boot gate: fresh installs pick a stream first; synced streams go
-  // straight to Home; chosen-but-unsynced streams resume the sync screen.
+  // Boot gate: fresh installs pick their default stream, then one sync
+  // downloads ALL streams. Any earlier completed sync boots to Home and the
+  // background delta tops up whatever is missing.
   final selected = prefs.getString('selected_stream');
-  final legacyDone = prefs.getBool(LocalStore.kSyncCompleteKey) ?? false;
-  final slug = kStreams
-      .firstWhere((s) => s.label == selected, orElse: () => kStreams.first)
-      .slug;
-  final done =
-      (prefs.getBool('sync_complete_$slug') ?? false) ||
-          (slug == 'sci' && legacyDone);
-  final initial = (selected == null && !legacyDone)
-      ? '/stream'
-      : (done ? '/' : '/sync');
+  final done = (prefs.getBool('sync_complete_all') ?? false) ||
+      (prefs.getBool('sync_complete_sci') ?? false) ||
+      (prefs.getBool(LocalStore.kSyncCompleteKey) ?? false);
+  final initial =
+      done ? '/' : (selected == null ? '/stream' : '/sync');
 
   runApp(
     ProviderScope(

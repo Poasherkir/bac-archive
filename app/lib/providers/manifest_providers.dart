@@ -7,10 +7,17 @@ import 'selected_stream.dart';
 
 /// The cached manifest, read from local storage. This is the ONLY source the
 /// browsing screens use — no network calls to view anything.
+/// Every synced entry across all streams (raw local cache).
+final allManifestProvider = FutureProvider<List<Exam>>((ref) async {
+  return ref.watch(localStoreProvider).readManifest('all');
+});
+
+/// The active stream's view of the archive. Switching streams is a pure
+/// local filter — instant, offline, no downloads.
 final manifestProvider = FutureProvider<List<Exam>>((ref) async {
-  // Keyed to the active stream: switching streams reloads automatically.
-  final slug = ref.watch(activeStreamSlugProvider);
-  return ref.watch(localStoreProvider).readManifest(slug);
+  final label = ref.watch(activeStreamProvider);
+  final all = await ref.watch(allManifestProvider.future);
+  return all.where((e) => e.streams.contains(label)).toList();
 });
 
 /// Distinct years present in the archive, newest first.
