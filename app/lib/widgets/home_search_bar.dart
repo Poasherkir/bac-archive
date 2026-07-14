@@ -10,11 +10,13 @@ class HomeSearchBar extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     this.hint,
+    this.keyboardType = TextInputType.number,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final String? hint;
+  final TextInputType keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +25,7 @@ class HomeSearchBar extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       hintText: hint ?? 'ابحث عن سنة...',
-      keyboardType: TextInputType.number,
+      keyboardType: keyboardType,
       leading: Padding(
         padding: const EdgeInsets.only(top: 2),
         child: Icon(Icons.search_rounded,
