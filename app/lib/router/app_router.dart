@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
+import '../screens/stream_picker_screen.dart';
 import '../screens/sync_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/year_screen.dart';
@@ -19,6 +20,11 @@ class PdfViewerArgs {
 GoRouter buildRouter({required String initialLocation}) => GoRouter(
   initialLocation: initialLocation,
   routes: [
+    GoRoute(
+      path: '/stream',
+      name: 'streamPicker',
+      builder: (context, state) => const StreamPickerScreen(),
+    ),
     GoRoute(
       path: '/sync',
       name: 'sync',
@@ -42,7 +48,7 @@ GoRouter buildRouter({required String initialLocation}) => GoRouter(
       name: 'subject',
       builder: (context, state) {
         final slug = state.pathParameters['slug']!;
-        final match = kSubjects.where((s) => s.slug == slug);
+        final match = kAllSubjects.where((s) => s.slug == slug);
         final subject = match.isNotEmpty ? match.first.label : slug;
         return SubjectScreen(
           year: state.pathParameters['year']!,
@@ -56,7 +62,7 @@ GoRouter buildRouter({required String initialLocation}) => GoRouter(
       name: 'subjectArchive',
       builder: (context, state) {
         final slug = state.pathParameters['slug']!;
-        final match = kSubjects.where((s) => s.slug == slug);
+        final match = kAllSubjects.where((s) => s.slug == slug);
         final subject = match.isNotEmpty ? match.first.label : slug;
         return SubjectArchiveScreen(subject: subject);
       },

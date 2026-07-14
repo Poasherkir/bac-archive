@@ -33,15 +33,24 @@ Future<void> main() async {
     );
   }
 
-  // First-launch gate: if a previous sync completed, skip the sync screen.
-  final syncDone = prefs.getBool(LocalStore.kSyncCompleteKey) ?? false;
+  // Boot gate: fresh installs pick a stream first; synced streams go
+  // straight to Home; chosen-but-unsynced streams resume the sync screen.
+  final selected = prefs.getString('selected_stream');
+  final legacyDone = prefs.getBool(LocalStore.kSyncCompleteKey) ?? false;
+  final slug = kStreams
+      .firstWhere((s) => s.label == selected, orElse: () => kStreams.first)
+      .slug;
+  final done =
+      (prefs.getBool('sync_complete_$slug') ?? false) ||
+          (slug == 'sci' && legacyDone);
+  final initial = (selected == null && !legacyDone)
+      ? '/stream'
+      : (done ? '/' : '/sync');
 
   runApp(
     ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: BacApp(
-        router: buildRouter(initialLocation: syncDone ? '/' : '/sync'),
-      ),
+      child: BacApp(router: buildRouter(initialLocation: initial)),
     ),
   );
 }
