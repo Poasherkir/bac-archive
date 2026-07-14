@@ -40,10 +40,18 @@ void main() {
   });
 
   group('sync flag', () {
-    test('defaults to false, then persists true', () async {
-      expect(store.isSyncComplete, isFalse);
-      await store.setSyncComplete(true);
-      expect(store.isSyncComplete, isTrue);
+    test('per-stream flags persist independently', () async {
+      expect(store.isSyncCompleteFor('sci'), isFalse);
+      await store.setSyncCompleteFor('sci');
+      expect(store.isSyncCompleteFor('sci'), isTrue);
+      expect(store.isSyncCompleteFor('math'), isFalse);
+    });
+
+    test('legacy flag counts as sciences', () async {
+      SharedPreferences.setMockInitialValues({'sync_complete': true});
+      final legacy = LocalStore(await SharedPreferences.getInstance());
+      expect(legacy.isSyncCompleteFor('sci'), isTrue);
+      expect(legacy.isSyncCompleteFor('math'), isFalse);
     });
   });
 }

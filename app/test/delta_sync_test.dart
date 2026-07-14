@@ -14,7 +14,7 @@ class _FakeRepo extends ExamRepository {
   _FakeRepo(this.list);
   final List<Exam> list;
   @override
-  Future<List<Exam>> fetchManifest() async => list;
+  Future<List<Exam>> fetchManifest(String stream) async => list;
 }
 
 /// Downloader that just writes a stub file (no network).
@@ -78,32 +78,32 @@ void main() {
       );
 
   test('first delta-sync downloads missing files and reports change', () async {
-    final changed = await service([exam('2024')]).runDeltaSync();
+    final changed = await service([exam('2024')]).runDeltaSync(stream: 'علوم تجريبية', slug: 'sci');
     expect(changed, isTrue);
     expect(downloader.calls, 1);
     // manifest cached for offline Home
-    expect((await store.readManifest()).length, 1);
+    expect((await store.readManifest('sci')).length, 1);
     // file mirrored on disk
     expect(await store.existsForUrl(exam('2024').sujetUrl!), isTrue);
   });
 
   test('second delta-sync with no changes reports no change', () async {
-    await service([exam('2024')]).runDeltaSync();
+    await service([exam('2024')]).runDeltaSync(stream: 'علوم تجريبية', slug: 'sci');
     downloader.calls = 0;
 
-    final changed = await service([exam('2024')]).runDeltaSync();
+    final changed = await service([exam('2024')]).runDeltaSync(stream: 'علوم تجريبية', slug: 'sci');
     expect(changed, isFalse);
     expect(downloader.calls, 0);
   });
 
   test('a new row on next sync is detected and downloaded', () async {
-    await service([exam('2024')]).runDeltaSync();
+    await service([exam('2024')]).runDeltaSync(stream: 'علوم تجريبية', slug: 'sci');
     downloader.calls = 0;
 
     final changed =
-        await service([exam('2024'), exam('2023')]).runDeltaSync();
+        await service([exam('2024'), exam('2023')]).runDeltaSync(stream: 'علوم تجريبية', slug: 'sci');
     expect(changed, isTrue);
     expect(downloader.calls, 1); // only the new file
-    expect((await store.readManifest()).length, 2);
+    expect((await store.readManifest('sci')).length, 2);
   });
 }
