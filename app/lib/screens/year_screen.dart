@@ -79,6 +79,8 @@ class YearScreen extends ConsumerWidget {
                       label: s.label,
                       slug: s.slug,
                       hasContent: available.contains(s.label),
+                      subtitle:
+                          available.contains(s.label) ? null : 'لم تُضف بعد',
                       onTap: () =>
                           context.push('/year/$year/subject/${s.slug}'),
                     ),

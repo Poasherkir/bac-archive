@@ -15,12 +15,17 @@ class SubjectCard extends StatefulWidget {
     required this.slug,
     required this.hasContent,
     required this.onTap,
+    this.subtitle,
   });
 
   final String label;
   final String slug;
   final bool hasContent;
   final VoidCallback onTap;
+
+  /// Optional second line. Null = omitted (tighter card). Callers pass real
+  /// information only (e.g. "لم تُضف بعد" or a year count) — never filler.
+  final String? subtitle;
 
   @override
   State<SubjectCard> createState() => _SubjectCardState();
@@ -85,16 +90,18 @@ class _SubjectCardState extends State<SubjectCard> {
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.hasContent ? 'جميع المواضيع' : 'لم تُضف بعد',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.4,
+                    if (widget.subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.subtitle!,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
