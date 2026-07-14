@@ -18,6 +18,41 @@ Currently serving **171 exam entries / 343 PDFs (~312 MB)** across 19 years and
 
 ---
 
+## About
+
+**أرشيف البكالوريا** is an offline-first archive of Algerian Baccalaureate
+(BAC) exam papers for students of the **علوم تجريبية** (Experimental Sciences)
+stream. Students download the full archive once, then browse and read every
+paper with **zero internet** — built for studying anywhere, on any connection.
+
+### Key features
+
+- 📴 **Offline-first** — one initial sync, then the entire archive (papers,
+  answers, model answers) lives on the device; new uploads arrive silently in
+  the background when online
+- 📅 **Browse by year** — pick a year (2008–2026), then a subject
+- 📚 **Browse by subject** — pick a subject and scroll every year's papers in
+  one place, newest first, one tap from year to PDF
+- 📄 **Built-in PDF viewer** — pinch zoom, page navigation, share, fullscreen
+- 🌙 **Dark mode** — system / light / dark, remembered across restarts
+- 🇩🇿 **Arabic-first** — full RTL layout with the Alexandria typeface
+
+### Tech stack
+
+**Flutter** (Material 3) · **Riverpod** (state) · **go_router** (navigation) ·
+**Supabase** (Postgres + Storage backend) · **pdfx** (rendering) ·
+`shared_preferences` / `connectivity_plus` for local state & network awareness.
+
+### Screenshots
+
+<!-- Replace the placeholders below with real captures (put files in docs/screenshots/). -->
+
+| Home (years) | Browse by subject | PDF viewer | Dark mode |
+|:---:|:---:|:---:|:---:|
+| _screenshot_ | _screenshot_ | _screenshot_ | _screenshot_ |
+
+---
+
 ## Table of contents
 
 - [How it works](#how-it-works)
